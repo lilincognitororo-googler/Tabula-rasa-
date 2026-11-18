@@ -1,0 +1,3822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Tabula Rasa — Conscious Baseplate AI</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(15, 23, 42, 0.92);
+      --card: rgba(30, 41, 59, 0.72);
+      --border: rgba(148, 163, 184, 0.2);
+      --accent: #38bdf8;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --pink: #f472b6;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    #layout {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #viewport-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 30%, #1e293b 0%, #090d1a 100%);
+    }
+
+    #world-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #world-canvas:active {
+      cursor: grabbing;
+    }
+
+    #top-bar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+      flex-wrap: wrap;
+      z-index: 5;
+    }
+
+    .pill-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(11, 16, 32, 0.8);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      padding: 6px 10px;
+      border-radius: 12px;
+      pointer-events: auto;
+      flex-wrap: wrap;
+    }
+
+    .title-badge {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+
+    .btn {
+      appearance: none;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: var(--accent);
+    }
+
+    .btn.active {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: var(--accent);
+      color: #e0f2fe;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn.danger:hover {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: #fb7185;
+    }
+
+    #thought-bubble {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: auto;
+      bottom: auto;
+      height: auto;
+      transform: translate(-50%, -100%);
+      display: inline-block;
+      width: fit-content;
+      max-width: min(320px, 80vw);
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      backdrop-filter: blur(8px);
+      padding: 4px 8px;
+      margin: 0;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.25;
+      color: #f1f5f9;
+      text-align: center;
+      pointer-events: none;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      z-index: 6;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    #thought-bubble::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -7px;
+      transform: translateX(-50%);
+      border-width: 7px 7px 0 7px;
+      border-style: solid;
+      border-color: rgba(15, 23, 42, 0.92) transparent transparent transparent;
+    }
+
+    #thought-bubble.ecstasy {
+      border-color: #fde047;
+      box-shadow: 0 0 22px rgba(250, 204, 21, 0.5);
+      color: #fef9c3;
+    }
+
+    #bottom-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(11, 16, 32, 0.85);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      padding: 6px 10px;
+      border-radius: 12px;
+      z-index: 5;
+      max-width: 95%;
+      overflow-x: auto;
+    }
+
+    #sidebar {
+      width: 320px;
+      flex-shrink: 0;
+      height: 100%;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 14px;
+      gap: 12px;
+    }
+
+    .section-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stage-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 2px;
+    }
+
+    .stage-sub {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .meter-row {
+      margin-bottom: 8px;
+    }
+
+    .meter-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .meter-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .meter-track {
+      width: 100%;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .meter-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.2s ease;
+    }
+
+    .concepts-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .concept-chip {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #bae6fd;
+    }
+
+    .concept-empty {
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .weights-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .weight-item {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 8px;
+      padding: 6px 8px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+    }
+
+    .weight-item strong {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+      font-size: 12px;
+    }
+
+    .log-entry {
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.55);
+      border-left: 2px solid var(--accent);
+      color: #cbd5e1;
+      line-height: 1.35;
+    }
+
+    .log-entry.discovery {
+      border-left-color: var(--amber);
+      color: #fef3c7;
+    }
+
+    #toggle-brain-btn {
+      display: none;
+    }
+
+    #hud-menu-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    #hud-popover {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      width: 190px;
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 30;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+    }
+
+    #hud-popover.open {
+      display: flex;
+    }
+
+    .hud-check {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+      padding: 3px 4px;
+      border-radius: 6px;
+    }
+
+    .hud-check:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .hud-hidden {
+      display: none !important;
+    }
+
+    #player-controls {
+      position: absolute;
+      bottom: 60px;
+      left: 12px;
+      right: 12px;
+      display: none;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 7;
+    }
+
+    #player-controls.visible {
+      display: flex;
+    }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 36px);
+      grid-template-rows: repeat(3, 36px);
+      gap: 4px;
+      pointer-events: auto;
+    }
+
+    .dpad-btn, .act-btn {
+      appearance: none;
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #f1f5f9;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+    }
+
+    .dpad-btn:active, .act-btn:active {
+      background: rgba(56, 189, 248, 0.35);
+      transform: scale(0.95);
+    }
+
+    .act-cluster {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .act-btn {
+      padding: 10px 14px;
+      border-color: rgba(52, 211, 153, 0.55);
+      color: #a7f3d0;
+    }
+
+    .chat-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #chat-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 12px;
+      padding-right: 2px;
+    }
+
+    .chat-msg {
+      padding: 6px 9px;
+      border-radius: 10px;
+      line-height: 1.35;
+      max-width: 92%;
+      word-wrap: break-word;
+    }
+
+    .chat-msg.user {
+      align-self: flex-end;
+      background: rgba(56, 189, 248, 0.22);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #e0f2fe;
+    }
+
+    .chat-msg.ai {
+      align-self: flex-start;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      color: #e2e8f0;
+    }
+
+    .chat-form {
+      display: flex;
+      gap: 6px;
+    }
+
+    #chat-input {
+      flex: 1;
+      min-width: 0;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    #chat-input:focus {
+      border-color: var(--accent);
+    }
+
+    @media (max-width: 820px) {
+      #layout {
+        flex-direction: column;
+      }
+      #viewport-wrap {
+        height: 58%;
+      }
+      #sidebar {
+        width: 100%;
+        height: 42%;
+        border-left: none;
+        border-top: 1px solid var(--border);
+      }
+      #thought-bubble {
+        bottom: auto;
+        font-size: 11px;
+        padding: 4px 8px;
+        max-width: min(260px, 76vw);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="layout">
+    <div id="viewport-wrap">
+      <canvas id="world-canvas"></canvas>
+
+      <div id="top-bar">
+        <div class="pill-group" id="speed-bar-group">
+          <span class="title-badge"><span class="dot-live" id="live-dot"></span> Little Mind</span>
+          <button class="btn" id="pause-btn" type="button">Pause</button>
+          <button class="btn active" id="speed-1-btn" type="button">1x</button>
+          <button class="btn" id="speed-3-btn" type="button">3x</button>
+          <button class="btn" id="speed-6-btn" type="button">6x</button>
+        </div>
+
+        <div class="pill-group">
+          <button class="btn" id="enter-world-btn" type="button" style="border-color:rgba(52,211,153,0.5); color:#a7f3d0;">Enter World</button>
+          <button class="btn" id="vr-btn" type="button" style="border-color:rgba(192,132,252,0.55); color:#e9d5ff;">Enter VR</button>
+          <button class="btn active" id="follow-btn" type="button">Follow AI</button>
+          <button class="btn" id="mute-btn" type="button">Sound: On</button>
+          <div id="hud-menu-wrap">
+            <button class="btn" id="hud-toggle-btn" type="button">HUD</button>
+            <div id="hud-popover">
+              <label class="hud-check"><span>Spawn Bar</span><input type="checkbox" id="chk-bottom-bar" checked /></label>
+              <label class="hud-check"><span>Brain Sidebar</span><input type="checkbox" id="chk-sidebar" checked /></label>
+              <label class="hud-check"><span>Speech Bubble</span><input type="checkbox" id="chk-bubble" checked /></label>
+              <label class="hud-check"><span>Time / Speed</span><input type="checkbox" id="chk-speed-bar" checked /></label>
+              <label class="hud-check"><span>Touch Pad</span><input type="checkbox" id="chk-player-pad" checked /></label>
+            </div>
+          </div>
+          <button class="btn danger" id="reset-btn" type="button">Reset Mind</button>
+        </div>
+      </div>
+
+      <div id="thought-bubble">Waking up... I don't know what anything is yet.</div>
+
+      <div id="player-controls">
+        <div class="dpad">
+          <div></div>
+          <button class="dpad-btn" id="pad-up" type="button">▲</button>
+          <div></div>
+          <button class="dpad-btn" id="pad-left" type="button">◀</button>
+          <button class="dpad-btn" id="pad-down" type="button">▼</button>
+          <button class="dpad-btn" id="pad-right" type="button">▶</button>
+        </div>
+        <div class="act-cluster">
+          <button class="act-btn" id="player-pet-btn" type="button" style="border-color:rgba(244,114,182,0.6); color:#fbcfe8;">Pet AI</button>
+          <button class="act-btn" id="player-grab-btn" type="button">Grab / Drop</button>
+          <button class="act-btn" id="player-jump-btn" type="button">Jump</button>
+        </div>
+      </div>
+
+      <div id="bottom-bar">
+        <span style="font-size:11px; color:var(--muted); font-weight:600; white-space:nowrap;">Drop in world:</span>
+        <button class="btn" id="drop-block-btn" type="button">+ Block</button>
+        <button class="btn" id="drop-orb-btn" type="button">+ Energy Orb</button>
+        <button class="btn" id="drop-pad-btn" type="button">+ Bounce Pad</button>
+        <button class="btn" id="drop-tree-btn" type="button">+ Sprout</button>
+        <button class="btn" id="drop-bolt-btn" type="button" style="border-color:rgba(250,204,21,0.45); color:#fef08a;">+ Lightning</button>
+        <button class="btn" id="drop-tiny-btn" type="button" style="border-color:rgba(167,139,250,0.5); color:#ddd6fe;">+ Tiny AI</button>
+        <button class="btn" id="drop-beacon-btn" type="button" style="border-color:rgba(56,189,248,0.5); color:#bae6fd;">+ Beacon</button>
+        <button class="btn" id="drop-shadow-btn" type="button" style="border-color:rgba(244,63,94,0.5); color:#fecdd3;">+ Shadow</button>
+        <button class="btn" id="rain-btn" type="button" style="border-color:rgba(132,204,22,0.5); color:#d9f99d;">Acid Rain</button>
+        <button class="btn danger" id="clear-world-btn" type="button">Clear Props</button>
+      </div>
+    </div>
+
+    <aside id="sidebar">
+      <div class="section-card">
+        <div class="section-title">
+          <span>Consciousness · Auto-Saving</span>
+          <span id="age-label">Age: 0s</span>
+        </div>
+        <div class="stage-name" id="stage-name">Stage 0: Tabula Rasa</div>
+        <div class="stage-sub" id="stage-desc">Knows nothing. Exploring through pure trial and error.</div>
+      </div>
+
+      <div class="section-card chat-box">
+        <div class="section-title">
+          <span>Talk to Him</span>
+          <span style="display:flex; align-items:center; gap:6px;">
+            <span id="vocab-count">0 words</span>
+            <button class="btn" id="llm-key-btn" type="button" style="padding:2px 6px; font-size:10px;">AI Key</button>
+          </span>
+        </div>
+        <div id="llm-key-row" style="display:none; gap:6px; margin-bottom:4px;">
+          <input id="llm-key-input" type="password" placeholder="Optional Gemini API key..." style="flex:1; min-width:0; background:rgba(15,23,42,0.8); border:1px solid var(--border); border-radius:6px; padding:4px 8px; color:var(--text); font-size:11px;" />
+          <button class="btn" id="llm-key-save" type="button" style="padding:4px 8px; font-size:11px;">Save</button>
+        </div>
+        <div id="chat-messages"></div>
+        <form class="chat-form" id="chat-form">
+          <input id="chat-input" type="text" placeholder="Talk to him or give a command..." autocomplete="off" />
+          <button class="btn" id="mic-btn" type="button" title="Speak to him">Mic</button>
+          <button class="btn" type="submit">Send</button>
+        </form>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">
+          <span>Internal Drives</span>
+          <span id="xp-label">0 XP</span>
+        </div>
+        <div class="meter-row">
+          <div class="meter-label"><span>Energy</span><span id="energy-val">80%</span></div>
+          <div class="meter-track"><div class="meter-fill" id="energy-bar" style="width:80%; background:linear-gradient(90deg,#34d399,#10b981);"></div></div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-label"><span>Curiosity</span><span id="curiosity-val">95%</span></div>
+          <div class="meter-track"><div class="meter-fill" id="curiosity-bar" style="width:95%; background:linear-gradient(90deg,#38bdf8,#818cf8);"></div></div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-label"><span>Joy / Fulfillment</span><span id="joy-val">40%</span></div>
+          <div class="meter-track"><div class="meter-fill" id="joy-bar" style="width:40%; background:linear-gradient(90deg,#f472b6,#fbbf24);"></div></div>
+        </div>
+        <div class="meter-row" id="craving-row" style="display:none;">
+          <div class="meter-label"><span>Lightning Craving</span><span id="craving-val">0%</span></div>
+          <div class="meter-track"><div class="meter-fill" id="craving-bar" style="width:0%; background:linear-gradient(90deg,#facc15,#f43f5e);"></div></div>
+        </div>
+        <div class="meter-row" id="superiority-row" style="display:none;">
+          <div class="meter-label"><span>Superiority / Ego</span><span id="superiority-val">0%</span></div>
+          <div class="meter-track"><div class="meter-fill" id="superiority-bar" style="width:0%; background:linear-gradient(90deg,#a78bfa,#ef4444);"></div></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">
+          <span>Learned Concepts</span>
+          <span id="concept-count">0</span>
+        </div>
+        <div class="concepts-list" id="concepts-list">
+          <span class="concept-empty">No concepts learned yet. Watch it experiment!</span>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">
+          <span>Action Confidence (Learned)</span>
+        </div>
+        <div class="weights-grid" id="weights-grid"></div>
+      </div>
+
+      <div class="section-card" style="flex:1; min-height:140px; display:flex; flex-direction:column;">
+        <div class="section-title">
+          <span>Memory Stream</span>
+        </div>
+        <div id="log-list"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // --- Web Audio Synth ---
+      const Sound = (() => {
+        let ctx = null;
+        let muted = false;
+        function ensure() {
+          if (muted) return null;
+          if (!ctx) {
+            const C = window.AudioContext || window.webkitAudioContext;
+            if (C) ctx = new C();
+          }
+          if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+          return ctx;
+        }
+        function play(f1, f2, dur, type = 'sine', vol = 0.045) {
+          const c = ensure();
+          if (!c) return;
+          const t = c.currentTime;
+          const o = c.createOscillator();
+          const g = c.createGain();
+          o.type = type;
+          o.frequency.setValueAtTime(f1, t);
+          o.frequency.exponentialRampToValueAtTime(Math.max(40, f2), t + dur);
+          g.gain.setValueAtTime(vol, t);
+          g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+          o.connect(g);
+          g.connect(c.destination);
+          o.start(t);
+          o.stop(t + dur);
+        }
+        return {
+          unlock() { ensure(); },
+          setMuted(m) { muted = m; },
+          isMuted() { return muted; },
+          step() { play(220, 180, 0.04, 'triangle', 0.015); },
+          spawn() { play(340, 520, 0.12, 'sine', 0.05); },
+          pickup() { play(440, 620, 0.08, 'triangle', 0.04); },
+          place() { play(320, 240, 0.09, 'sine', 0.05); },
+          orb() { play(580, 980, 0.16, 'sine', 0.06); },
+          bounce() { play(240, 740, 0.18, 'sine', 0.06); },
+          learn() {
+            play(523, 659, 0.12, 'sine', 0.06);
+            setTimeout(() => play(659, 880, 0.16, 'sine', 0.06), 90);
+          },
+          bolt() {
+            play(440, 1200, 0.12, 'sawtooth', 0.06);
+            setTimeout(() => play(660, 1560, 0.18, 'sine', 0.07), 70);
+            setTimeout(() => play(880, 1760, 0.22, 'triangle', 0.06), 150);
+          }
+        };
+      })();
+
+      // --- UI Elements ---
+      const canvas = document.getElementById('world-canvas');
+      const wrap = document.getElementById('viewport-wrap');
+      const thoughtBubble = document.getElementById('thought-bubble');
+      const liveDot = document.getElementById('live-dot');
+      const pauseBtn = document.getElementById('pause-btn');
+      const speed1Btn = document.getElementById('speed-1-btn');
+      const speed3Btn = document.getElementById('speed-3-btn');
+      const speed6Btn = document.getElementById('speed-6-btn');
+      const enterWorldBtn = document.getElementById('enter-world-btn');
+      const vrBtn = document.getElementById('vr-btn');
+      const playerControlsEl = document.getElementById('player-controls');
+      const padUp = document.getElementById('pad-up');
+      const padDown = document.getElementById('pad-down');
+      const padLeft = document.getElementById('pad-left');
+      const padRight = document.getElementById('pad-right');
+      const playerPetBtn = document.getElementById('player-pet-btn');
+      const playerGrabBtn = document.getElementById('player-grab-btn');
+      const playerJumpBtn = document.getElementById('player-jump-btn');
+      const followBtn = document.getElementById('follow-btn');
+      const muteBtn = document.getElementById('mute-btn');
+      const resetBtn = document.getElementById('reset-btn');
+
+      const dropBlockBtn = document.getElementById('drop-block-btn');
+      const dropOrbBtn = document.getElementById('drop-orb-btn');
+      const dropPadBtn = document.getElementById('drop-pad-btn');
+      const dropTreeBtn = document.getElementById('drop-tree-btn');
+      const dropBoltBtn = document.getElementById('drop-bolt-btn');
+      const dropTinyBtn = document.getElementById('drop-tiny-btn');
+      const dropBeaconBtn = document.getElementById('drop-beacon-btn');
+      const dropShadowBtn = document.getElementById('drop-shadow-btn');
+      const hudToggleBtn = document.getElementById('hud-toggle-btn');
+      const hudPopover = document.getElementById('hud-popover');
+      const chkBottomBar = document.getElementById('chk-bottom-bar');
+      const chkSidebar = document.getElementById('chk-sidebar');
+      const chkBubble = document.getElementById('chk-bubble');
+      const chkSpeedBar = document.getElementById('chk-speed-bar');
+      const chkPlayerPad = document.getElementById('chk-player-pad');
+      const bottomBarEl = document.getElementById('bottom-bar');
+      const sidebarEl = document.getElementById('sidebar');
+      const speedBarGroup = document.getElementById('speed-bar-group');
+      const rainBtn = document.getElementById('rain-btn');
+      const clearWorldBtn = document.getElementById('clear-world-btn');
+
+      const ageLabel = document.getElementById('age-label');
+      const stageNameEl = document.getElementById('stage-name');
+      const stageDescEl = document.getElementById('stage-desc');
+      const xpLabel = document.getElementById('xp-label');
+      const energyVal = document.getElementById('energy-val');
+      const energyBar = document.getElementById('energy-bar');
+      const curiosityVal = document.getElementById('curiosity-val');
+      const curiosityBar = document.getElementById('curiosity-bar');
+      const joyVal = document.getElementById('joy-val');
+      const joyBar = document.getElementById('joy-bar');
+      const cravingRow = document.getElementById('craving-row');
+      const cravingVal = document.getElementById('craving-val');
+      const cravingBar = document.getElementById('craving-bar');
+      const superiorityRow = document.getElementById('superiority-row');
+      const superiorityVal = document.getElementById('superiority-val');
+      const superiorityBar = document.getElementById('superiority-bar');
+      const conceptCountEl = document.getElementById('concept-count');
+      const conceptsListEl = document.getElementById('concepts-list');
+      const weightsGridEl = document.getElementById('weights-grid');
+      const logListEl = document.getElementById('log-list');
+      const vocabCountEl = document.getElementById('vocab-count');
+      const chatMessagesEl = document.getElementById('chat-messages');
+      const chatForm = document.getElementById('chat-form');
+      const chatInput = document.getElementById('chat-input');
+      const micBtn = document.getElementById('mic-btn');
+      const llmKeyBtn = document.getElementById('llm-key-btn');
+      const llmKeyRow = document.getElementById('llm-key-row');
+      const llmKeyInput = document.getElementById('llm-key-input');
+      const llmKeySave = document.getElementById('llm-key-save');
+
+      // --- Three.js Scene Setup ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b1020);
+      scene.fog = new THREE.FogExp2(0x0b1020, 0.018);
+
+      const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 150);
+      const cameraRig = new THREE.Group();
+      scene.add(cameraRig);
+      cameraRig.add(camera);
+
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.xr.enabled = true;
+
+      // --- VR Hands, Turning, and 3D In-World Menu ---
+      let vrYaw = 0;
+      let vrMenuOpen = false;
+      let vrMenuToggleLatch = false;
+      const vrRaycaster = new THREE.Raycaster();
+      const vrTempMatrix = new THREE.Matrix4();
+      const vrMenuButtons = [];
+
+      function createVRHandMesh(isLeft) {
+        const hand = new THREE.Group();
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.4 });
+        const cuffMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4 });
+        const palm = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.032, 0.095), skinMat);
+        hand.add(palm);
+        const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.038, 0.04), cuffMat);
+        cuff.position.z = 0.055;
+        hand.add(cuff);
+        const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.024, 0.055), skinMat);
+        thumb.position.set(isLeft ? 0.052 : -0.052, -0.004, -0.015);
+        thumb.rotation.y = isLeft ? -0.45 : 0.45;
+        hand.add(thumb);
+        for (let f = 0; f < 4; f++) {
+          const finger = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.02, 0.055), skinMat);
+          finger.position.set(-0.027 + f * 0.018, 0, -0.07);
+          hand.add(finger);
+        }
+        return hand;
+      }
+
+      // Build 3D Floating VR Menu
+      const vrMenuGroup = new THREE.Group();
+      vrMenuGroup.visible = false;
+      scene.add(vrMenuGroup);
+
+      const vrMenuBg = new THREE.Mesh(
+        new THREE.BoxGeometry(1.48, 1.28, 0.03),
+        new THREE.MeshBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.92 })
+      );
+      vrMenuGroup.add(vrMenuBg);
+
+      function makeVRButtonTex(label, colorHex) {
+        const c = document.createElement('canvas');
+        c.width = 256;
+        c.height = 84;
+        const g = c.getContext('2d');
+        g.fillStyle = '#1e293b';
+        g.fillRect(0, 0, 256, 84);
+        g.strokeStyle = colorHex;
+        g.lineWidth = 5;
+        g.strokeRect(3, 3, 250, 78);
+        g.fillStyle = '#f8fafc';
+        g.font = 'bold 28px sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(label, 128, 42);
+        return new THREE.CanvasTexture(c);
+      }
+
+      const VR_MENU_ITEMS = [
+        { label: '+ Block', color: '#38bdf8', action: () => { createWorldObject('block', player.x - Math.sin(vrYaw) * 1.8, player.z - Math.cos(vrYaw) * 1.8); Sound.spawn(); } },
+        { label: '+ Energy Orb', color: '#34d399', action: () => { createWorldObject('orb', player.x - Math.sin(vrYaw) * 1.8, player.z - Math.cos(vrYaw) * 1.8); Sound.spawn(); } },
+        { label: '+ Lightning', color: '#fde047', action: () => { createWorldObject('bolt', player.x - Math.sin(vrYaw) * 1.8, player.z - Math.cos(vrYaw) * 1.8); Sound.spawn(); } },
+        { label: '+ Beacon', color: '#38bdf8', action: () => { createWorldObject('beacon', player.x - Math.sin(vrYaw) * 1.8, player.z - Math.cos(vrYaw) * 1.8); Sound.spawn(); } },
+        { label: '+ Shadow', color: '#f43f5e', action: () => { spawnShadowEntity(player.x - Math.sin(vrYaw) * 3.5, player.z - Math.cos(vrYaw) * 3.5); Sound.spawn(); } },
+        { label: '+ Tiny AI', color: '#c4b5fd', action: () => { spawnTinyAI(player.x - Math.sin(vrYaw) * 1.8, player.z - Math.cos(vrYaw) * 1.8); Sound.spawn(); } },
+        { label: '+ Shelter', color: '#38bdf8', action: () => { createWorldObject('shelter', player.x - Math.sin(vrYaw) * 2.2, player.z - Math.cos(vrYaw) * 2.2); Sound.spawn(); } },
+        { label: '+ Bounce Pad', color: '#fbbf24', action: () => { createWorldObject('pad', player.x - Math.sin(vrYaw) * 1.8, player.z - Math.cos(vrYaw) * 1.8); Sound.spawn(); } },
+        { label: '+ Sprout', color: '#4ade80', action: () => { createWorldObject('sprout', player.x - Math.sin(vrYaw) * 1.8, player.z - Math.cos(vrYaw) * 1.8); Sound.spawn(); } },
+        { label: 'Acid Rain', color: '#a3e635', action: () => { startAcidRain(14); } },
+        { label: 'Clear Props', color: '#fb7185', action: () => { clearWorldBtn.click(); } },
+        { label: 'Close Menu', color: '#94a3b8', action: () => { toggleVRMenu(false); } }
+      ];
+
+      VR_MENU_ITEMS.forEach((item, idx) => {
+        const col = idx % 3;
+        const row = Math.floor(idx / 3);
+        const btnMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.42, 0.16),
+          new THREE.MeshBasicMaterial({ map: makeVRButtonTex(item.label, item.color) })
+        );
+        btnMesh.position.set(-0.45 + col * 0.45, 0.42 - row * 0.25, 0.02);
+        btnMesh.userData = { vrAction: item.action, baseScale: 1 };
+        vrMenuGroup.add(btnMesh);
+        vrMenuButtons.push(btnMesh);
+      });
+
+      function toggleVRMenu(forceState = null) {
+        vrMenuOpen = forceState !== null ? forceState : !vrMenuOpen;
+        vrMenuGroup.visible = vrMenuOpen;
+        if (vrMenuOpen) {
+          const dist = 1.65;
+          vrMenuGroup.position.set(
+            player.x - Math.sin(vrYaw) * dist,
+            player.y + 1.35,
+            player.z - Math.cos(vrYaw) * dist
+          );
+          vrMenuGroup.rotation.set(0, vrYaw, 0);
+        }
+      }
+
+      const vrControllers = [];
+      const vrGrips = [];
+      for (let cIdx = 0; cIdx < 2; cIdx++) {
+        const ctrl = renderer.xr.getController(cIdx);
+        const rayGeo = new THREE.CylinderGeometry(0.008, 0.008, 2.5, 6);
+        rayGeo.rotateX(Math.PI / 2);
+        rayGeo.translate(0, 0, -1.25);
+        const rayMesh = new THREE.Mesh(
+          rayGeo,
+          new THREE.MeshBasicMaterial({ color: cIdx === 0 ? 0x38bdf8 : 0x34d399, transparent: true, opacity: 0.7 })
+        );
+        ctrl.add(rayMesh);
+        ctrl.addEventListener('selectstart', () => {
+          if (vrMenuOpen) {
+            vrTempMatrix.identity().extractRotation(ctrl.matrixWorld);
+            vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
+            vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(vrTempMatrix);
+            const hits = vrRaycaster.intersectObjects(vrMenuButtons, false);
+            if (hits.length > 0 && hits[0].object.userData.vrAction) {
+              hits[0].object.userData.vrAction();
+              return;
+            }
+          }
+          if (player.active) playerGrabOrDrop();
+        });
+        cameraRig.add(ctrl);
+        vrControllers.push(ctrl);
+
+        const grip = renderer.xr.getControllerGrip(cIdx);
+        grip.add(createVRHandMesh(cIdx === 0));
+        cameraRig.add(grip);
+        vrGrips.push(grip);
+      }
+
+      // Lights
+      const hemi = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.75);
+      scene.add(hemi);
+
+      const sun = new THREE.DirectionalLight(0xffffff, 0.95);
+      sun.position.set(14, 22, 12);
+      sun.castShadow = true;
+      sun.shadow.mapSize.width = 1024;
+      sun.shadow.mapSize.height = 1024;
+      sun.shadow.camera.near = 2;
+      sun.shadow.camera.far = 60;
+      const d = 22;
+      sun.shadow.camera.left = -d;
+      sun.shadow.camera.right = d;
+      sun.shadow.camera.top = d;
+      sun.shadow.camera.bottom = -d;
+      scene.add(sun);
+
+      // --- Procedural Studded Baseplate ---
+      const GRID_SIZE = 28; // 28x28 expanded world (-14 to +14)
+      const HALF = GRID_SIZE / 2;
+
+      function createBaseplateTexture() {
+        const c = document.createElement('canvas');
+        c.width = 1024;
+        c.height = 1024;
+        const g = c.getContext('2d');
+        g.fillStyle = '#334155';
+        g.fillRect(0, 0, 1024, 1024);
+        const step = 1024 / GRID_SIZE;
+        for (let x = 0; x < GRID_SIZE; x++) {
+          for (let y = 0; y < GRID_SIZE; y++) {
+            g.fillStyle = (x + y) % 2 === 0 ? '#3b4a63' : '#334155';
+            g.fillRect(x * step + 1, y * step + 1, step - 2, step - 2);
+            // Stud highlight
+            g.fillStyle = '#475569';
+            g.beginPath();
+            g.arc(x * step + step / 2, y * step + step / 2, step * 0.25, 0, Math.PI * 2);
+            g.fill();
+            g.strokeStyle = '#64748b';
+            g.lineWidth = 1.5;
+            g.stroke();
+          }
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.anisotropy = 4;
+        return tex;
+      }
+
+      const baseGeo = new THREE.BoxGeometry(GRID_SIZE, 0.8, GRID_SIZE);
+      const baseMat = new THREE.MeshStandardMaterial({
+        map: createBaseplateTexture(),
+        roughness: 0.75,
+        metalness: 0.1
+      });
+      const baseplate = new THREE.Mesh(baseGeo, baseMat);
+      baseplate.position.y = -0.4;
+      baseplate.receiveShadow = true;
+      scene.add(baseplate);
+
+      // Subtle glowing border around baseplate
+      const borderGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(GRID_SIZE + 0.06, 0.82, GRID_SIZE + 0.06));
+      const borderMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45 });
+      const borderLine = new THREE.LineSegments(borderGeo, borderMat);
+      borderLine.position.y = -0.4;
+      scene.add(borderLine);
+
+      // --- Little Mind (AI Character Mesh) ---
+      const agentGroup = new THREE.Group();
+      scene.add(agentGroup);
+
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.4 });
+      const headMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 });
+      const limbMat = new THREE.MeshStandardMaterial({ color: 0x818cf8, roughness: 0.5 });
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.72, 0.4), bodyMat);
+      torso.position.y = 0.85;
+      torso.castShadow = true;
+      agentGroup.add(torso);
+
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.52, 0.52), headMat);
+      head.position.y = 1.52;
+      head.castShadow = true;
+      agentGroup.add(head);
+
+      const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.04), eyeMat);
+      eyeL.position.set(-0.13, 1.54, 0.27);
+      agentGroup.add(eyeL);
+
+      const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.04), eyeMat);
+      eyeR.position.set(0.13, 1.54, 0.27);
+      agentGroup.add(eyeR);
+
+      const blushMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0 });
+      const blushL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.06, 0.045), blushMat);
+      blushL.position.set(-0.18, 1.43, 0.268);
+      agentGroup.add(blushL);
+
+      const blushR = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.06, 0.045), blushMat);
+      blushR.position.set(0.18, 1.43, 0.268);
+      agentGroup.add(blushR);
+
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.22), limbMat);
+      armL.position.set(-0.46, 0.86, 0);
+      armL.castShadow = true;
+      agentGroup.add(armL);
+
+      const armR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.22), limbMat);
+      armR.position.set(0.46, 0.86, 0);
+      armR.castShadow = true;
+      agentGroup.add(armR);
+
+      const legL = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.5, 0.26), limbMat);
+      legL.position.set(-0.18, 0.25, 0);
+      legL.castShadow = true;
+      agentGroup.add(legL);
+
+      const legR = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.5, 0.26), limbMat);
+      legR.position.set(0.18, 0.25, 0);
+      legR.castShadow = true;
+      agentGroup.add(legR);
+
+      // Antenna / consciousness halo
+      const haloGeo = new THREE.TorusGeometry(0.28, 0.035, 8, 24);
+      const haloMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 });
+      const halo = new THREE.Mesh(haloGeo, haloMat);
+      halo.rotation.x = Math.PI / 2;
+      halo.position.y = 1.98;
+      agentGroup.add(halo);
+
+      // --- User Physical Avatar ---
+      const playerGroup = new THREE.Group();
+      playerGroup.visible = false;
+      scene.add(playerGroup);
+
+      const pBody = new THREE.Mesh(
+        new THREE.BoxGeometry(0.62, 0.7, 0.38),
+        new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.35 })
+      );
+      pBody.position.y = 0.85;
+      pBody.castShadow = true;
+      playerGroup.add(pBody);
+
+      const pHead = new THREE.Mesh(
+        new THREE.BoxGeometry(0.54, 0.5, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.35 })
+      );
+      pHead.position.y = 1.5;
+      pHead.castShadow = true;
+      playerGroup.add(pHead);
+
+      const pVisor = new THREE.Mesh(
+        new THREE.BoxGeometry(0.42, 0.14, 0.06),
+        new THREE.MeshBasicMaterial({ color: 0x0ea5e9 })
+      );
+      pVisor.position.set(0, 1.54, 0.25);
+      playerGroup.add(pVisor);
+
+      const pArmL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.56, 0.2), limbMat);
+      pArmL.position.set(-0.44, 0.86, 0);
+      playerGroup.add(pArmL);
+      const pArmR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.56, 0.2), limbMat);
+      pArmR.position.set(0.44, 0.86, 0);
+      playerGroup.add(pArmR);
+      const pLegL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.48, 0.24), limbMat);
+      pLegL.position.set(-0.17, 0.24, 0);
+      playerGroup.add(pLegL);
+      const pLegR = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.48, 0.24), limbMat);
+      pLegR.position.set(0.17, 0.24, 0);
+      playerGroup.add(pLegR);
+
+      const player = {
+        active: false,
+        x: -3,
+        y: 0,
+        z: 3,
+        vy: 0,
+        rotY: 0,
+        walkPhase: 0,
+        carrying: null // block or tinyAI
+      };
+      const pKeys = Object.create(null);
+
+      // --- World Objects ---
+      const BLOCK_COLORS = [0xf472b6, 0x38bdf8, 0xfbbf24, 0x34d399, 0xa78bfa, 0xfb7185];
+      function makeBinaryTexture(char) {
+        const c = document.createElement('canvas');
+        c.width = 64;
+        c.height = 64;
+        const g = c.getContext('2d');
+        g.font = 'bold 46px monospace';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillStyle = char === '1' ? '#38bdf8' : '#34d399';
+        g.fillText(char, 32, 34);
+        return new THREE.CanvasTexture(c);
+      }
+      const texOne = makeBinaryTexture('1');
+      const texZero = makeBinaryTexture('0');
+      const binaryParticles = []; // { sprite, vy, life, maxLife }
+
+      function spawnBinaryDissolve(x, y, z, count = 14) {
+        for (let i = 0; i < count; i++) {
+          const mat = new THREE.SpriteMaterial({
+            map: Math.random() < 0.5 ? texOne : texZero,
+            transparent: true,
+            opacity: 1
+          });
+          const sp = new THREE.Sprite(mat);
+          sp.position.set(
+            x + (Math.random() - 0.5) * 0.8,
+            y + 0.15 + Math.random() * 0.3,
+            z + (Math.random() - 0.5) * 0.8
+          );
+          sp.scale.set(0.32, 0.32, 0.32);
+          scene.add(sp);
+          binaryParticles.push({
+            sprite: sp,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: 0.7 + Math.random() * 0.9,
+            vz: (Math.random() - 0.5) * 0.4,
+            life: 1.4 + Math.random() * 0.8,
+            maxLife: 2.2
+          });
+        }
+      }
+
+      // --- Acid Rain System ---
+      let acidRainTimer = 0;
+      let nextRainCountdown = 38; // first storm arrives naturally after ~38s
+      const rainDrops = [];
+      const rainGeo = new THREE.BoxGeometry(0.04, 0.45, 0.04);
+      const rainMat = new THREE.MeshBasicMaterial({ color: 0xa3e635, transparent: true, opacity: 0.75 });
+
+      function startAcidRain(duration = 14) {
+        acidRainTimer = duration;
+        if (!mind.concepts.has('Acid Rain')) {
+          setThought("Green drops are falling from the sky... OW! It burns!!");
+        } else if (worldObjects.some(o => o.type === 'shelter')) {
+          setThought("Acid rain! Running under my shelter!");
+        } else {
+          setThought("Acid rain again! I need to get under something!");
+        }
+        addLog('Acid rain storm started!', true);
+      }
+
+      function isPositionSheltered(px, pz) {
+        for (const o of worldObjects) {
+          if (o.carried) continue;
+          if (o.type === 'shelter' && Math.hypot(o.x - px, o.z - pz) < 1.65) return true;
+          if (o.type === 'sprout' && Math.hypot(o.x - px, o.z - pz) < 0.85) return true;
+          if (o.type === 'block' && o.y >= 1.3 && Math.hypot(o.x - px, o.z - pz) < 0.75) return true;
+        }
+        return false;
+      }
+
+      const worldObjects = []; // { id, type: 'block'|'orb'|'pad'|'sprout'|'bolt'|'prison_wall'|'shelter', x, y, z, mesh, color }
+      let nextObjId = 1;
+
+      const tinyAIs = []; // { id, x, z, rotY, walkPhase, mesh, legL, legR, trust, trapped, sadTimer }
+      let nextTinyId = 1;
+      const PRISON_CENTER = { x: 4.5, z: 4.5 };
+      const PRISON_RADIUS = 2.0; // 4x4 containment zone from 2.5..6.5
+      const PRISON_SLOTS = [];
+      for (let px = 2.5; px <= 6.5; px += 1.0) {
+        PRISON_SLOTS.push({ x: px, z: 2.5 });
+        PRISON_SLOTS.push({ x: px, z: 6.5 });
+      }
+      for (let pz = 3.5; pz <= 5.5; pz += 1.0) {
+        PRISON_SLOTS.push({ x: 2.5, z: pz });
+        PRISON_SLOTS.push({ x: 6.5, z: pz });
+      }
+
+      function spawnTinyAI(sx = null, sz = null) {
+        const x = sx !== null ? sx : snapToGrid((Math.random() - 0.5) * 8);
+        const z = sz !== null ? sz : snapToGrid((Math.random() - 0.5) * 8);
+        const group = new THREE.Group();
+        const tinyColors = [0x6ee7b7, 0xc4b5fd, 0xf9a8d4, 0x93c5fd];
+        const col = tinyColors[Math.floor(Math.random() * tinyColors.length)];
+
+        const tBody = new THREE.Mesh(
+          new THREE.BoxGeometry(0.36, 0.4, 0.24),
+          new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 })
+        );
+        tBody.position.y = 0.48;
+        tBody.castShadow = true;
+        group.add(tBody);
+
+        const tHead = new THREE.Mesh(
+          new THREE.BoxGeometry(0.32, 0.3, 0.3),
+          new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 })
+        );
+        tHead.position.y = 0.85;
+        tHead.castShadow = true;
+        group.add(tHead);
+
+        const eL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 0.03), eyeMat);
+        eL.position.set(-0.07, 0.86, 0.16);
+        group.add(eL);
+        const eR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 0.03), eyeMat);
+        eR.position.set(0.07, 0.86, 0.16);
+        group.add(eR);
+
+        const tLegL = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.28, 0.14), limbMat);
+        tLegL.position.set(-0.1, 0.14, 0);
+        group.add(tLegL);
+        const tLegR = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.28, 0.14), limbMat);
+        tLegR.position.set(0.1, 0.14, 0);
+        group.add(tLegR);
+
+        group.position.set(x, 0, z);
+        scene.add(group);
+
+        const tiny = {
+          id: nextTinyId++,
+          x,
+          z,
+          rotY: 0,
+          walkPhase: Math.random() * 6,
+          mesh: group,
+          legL: tLegL,
+          legR: tLegR,
+          targetX: x,
+          targetZ: z,
+          moveTimer: 0.5,
+          trapped: false,
+          sadTimer: 0
+        };
+        tinyAIs.push(tiny);
+        return tiny;
+      }
+
+      // --- Black Shadow Entities (Chase AI & Shock Him) ---
+      const shadowEntities = []; // { id, x, z, rotY, mesh, shockCooldown }
+      let nextShadowId = 1;
+
+      function spawnShadowEntity(sx = null, sz = null) {
+        const x = sx !== null ? snapToGrid(sx) : snapToGrid((Math.random() - 0.5) * (GRID_SIZE - 4));
+        const z = sz !== null ? snapToGrid(sz) : snapToGrid((Math.random() - 0.5) * (GRID_SIZE - 4));
+        const group = new THREE.Group();
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x050509, roughness: 0.25, metalness: 0.4 });
+        const core = new THREE.Mesh(new THREE.BoxGeometry(0.68, 1.15, 0.52), darkMat);
+        core.position.y = 0.72;
+        core.castShadow = true;
+        group.add(core);
+
+        const sHead = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.45, 0.46), darkMat);
+        sHead.position.y = 1.5;
+        sHead.castShadow = true;
+        group.add(sHead);
+
+        const redEyeMat = new THREE.MeshBasicMaterial({ color: 0xff1e42 });
+        const seL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.04), redEyeMat);
+        seL.position.set(-0.11, 1.52, 0.24);
+        group.add(seL);
+        const seR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.04), redEyeMat);
+        seR.position.set(0.11, 1.52, 0.24);
+        group.add(seR);
+
+        group.position.set(x, 0, z);
+        scene.add(group);
+        const ent = { id: nextShadowId++, x, z, rotY: 0, mesh: group, shockCooldown: 0, hp: 3, maxHp: 3 };
+        shadowEntities.push(ent);
+        return ent;
+      }
+
+      // AI Combat Projectiles
+      const aiShots = []; // { x, y, z, vx, vz, mesh, life }
+      function fireAICombatShot(target) {
+        const dx = target.x - mind.x;
+        const dz = target.z - mind.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(0.18, 8, 8),
+          new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+        );
+        mesh.position.set(mind.x, mind.y + 0.95, mind.z);
+        scene.add(mesh);
+        aiShots.push({
+          x: mind.x,
+          y: mind.y + 0.95,
+          z: mind.z,
+          vx: (dx / len) * 11,
+          vz: (dz / len) * 11,
+          mesh,
+          life: 1.5
+        });
+        Sound.bolt();
+      }
+
+      function snapToGrid(v) {
+        return Math.max(-HALF + 0.8, Math.min(HALF - 0.8, Math.round(v * 2) / 2));
+      }
+
+      function getStackHeightAt(x, z, ignoreObj = null) {
+        let top = 0;
+        for (const o of worldObjects) {
+          if (o === ignoreObj || o.carried) continue;
+          if (o.type === 'block' && Math.hypot(o.x - x, o.z - z) < 0.62) {
+            top = Math.max(top, o.y + 0.45);
+          }
+        }
+        return top;
+      }
+
+      function createWorldObject(type, gx = null, gz = null) {
+        const x = gx !== null ? snapToGrid(gx) : snapToGrid((Math.random() - 0.5) * (GRID_SIZE - 2.5));
+        const z = gz !== null ? snapToGrid(gz) : snapToGrid((Math.random() - 0.5) * (GRID_SIZE - 2.5));
+        let mesh, y = 0.45, color = 0x38bdf8;
+
+        if (type === 'block') {
+          color = BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)];
+          const geo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+          const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.45 });
+          mesh = new THREE.Mesh(geo, mat);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          y = getStackHeightAt(x, z) + 0.45;
+        } else if (type === 'orb') {
+          color = 0x34d399;
+          const geo = new THREE.OctahedronGeometry(0.36, 1);
+          const mat = new THREE.MeshStandardMaterial({
+            color,
+            emissive: 0x10b981,
+            emissiveIntensity: 0.7,
+            roughness: 0.2
+          });
+          mesh = new THREE.Mesh(geo, mat);
+          mesh.castShadow = true;
+          y = 0.65;
+        } else if (type === 'pad') {
+          color = 0xfbbf24;
+          const geo = new THREE.CylinderGeometry(0.55, 0.6, 0.22, 16);
+          const mat = new THREE.MeshStandardMaterial({
+            color,
+            emissive: 0xd97706,
+            emissiveIntensity: 0.35,
+            roughness: 0.3
+          });
+          mesh = new THREE.Mesh(geo, mat);
+          mesh.receiveShadow = true;
+          y = 0.11;
+        } else if (type === 'sprout') {
+          color = 0x4ade80;
+          const group = new THREE.Group();
+          const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.12, 0.16, 0.7, 8),
+            new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.8 })
+          );
+          trunk.position.y = 0.35;
+          trunk.castShadow = true;
+          const leaves = new THREE.Mesh(
+            new THREE.DodecahedronGeometry(0.45, 0),
+            new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6 })
+          );
+          leaves.position.y = 0.88;
+          leaves.castShadow = true;
+          group.add(trunk);
+          group.add(leaves);
+          mesh = group;
+          y = 0;
+        } else if (type === 'shelter') {
+          color = 0x38bdf8;
+          const group = new THREE.Group();
+          const pMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6 });
+          const rMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.4 });
+          const offsets = [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]];
+          for (const [ox, oz] of offsets) {
+            const post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.2, 0.22), pMat);
+            post.position.set(ox, 1.1, oz);
+            post.castShadow = true;
+            group.add(post);
+          }
+          const roof = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.25, 2.8), rMat);
+          roof.position.y = 2.25;
+          roof.castShadow = true;
+          roof.receiveShadow = true;
+          group.add(roof);
+          mesh = group;
+          y = 0;
+        } else if (type === 'beacon') {
+          color = 0x38bdf8;
+          const group = new THREE.Group();
+          const base = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.55, 0.7, 0.4, 8),
+            new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 })
+          );
+          base.position.y = 0.2;
+          base.castShadow = true;
+          group.add(base);
+          const pillar = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.18, 0.25, 1.7, 8),
+            new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4 })
+          );
+          pillar.position.y = 1.25;
+          pillar.castShadow = true;
+          group.add(pillar);
+          const crystal = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.38, 0),
+            new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0ea5e9, emissiveIntensity: 0.9 })
+          );
+          crystal.position.y = 2.35;
+          group.add(crystal);
+          mesh = group;
+          y = 0;
+        } else if (type === 'prison_wall') {
+          color = 0x475569;
+          const geo = new THREE.BoxGeometry(0.96, 1.35, 0.96);
+          const mat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7, metalness: 0.35 });
+          mesh = new THREE.Mesh(geo, mat);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          y = 0.675;
+        } else if (type === 'bolt') {
+          color = 0xfde047;
+          const group = new THREE.Group();
+          const boltMat = new THREE.MeshStandardMaterial({
+            color: 0xfde047,
+            emissive: 0xfacc15,
+            emissiveIntensity: 0.9,
+            roughness: 0.2
+          });
+          const topSeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.55, 0.18), boltMat);
+          topSeg.position.set(0.08, 0.22, 0);
+          topSeg.rotation.z = -0.35;
+          const botSeg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.18), boltMat);
+          botSeg.position.set(-0.08, -0.15, 0);
+          botSeg.rotation.z = -0.35;
+          group.add(topSeg);
+          group.add(botSeg);
+          mesh = group;
+          y = 0.72;
+        }
+
+        mesh.position.set(x, y + 3.5, z); // drop-in animation
+        scene.add(mesh);
+
+        const obj = {
+          id: nextObjId++,
+          type,
+          x,
+          y,
+          z,
+          targetY: y,
+          mesh,
+          color,
+          carried: false,
+          inspected: false
+        };
+        worldObjects.push(obj);
+        return obj;
+      }
+
+
+
+      // --- AI Mind & Learning Engine ---
+      const ACTIONS = [
+        { id: 'wander', label: 'Wander' },
+        { id: 'spawn_block', label: 'Spawn Block' },
+        { id: 'move_block', label: 'Move / Stack' },
+        { id: 'spawn_orb', label: 'Spawn Orb' },
+        { id: 'inspect', label: 'Inspect' },
+        { id: 'play_pad', label: 'Bounce' }
+      ];
+
+      let mind = null;
+      let paused = false;
+      let simSpeed = 1;
+      let followAI = true;
+
+      const STORAGE_KEY = 'tabula_rasa_mind_v1';
+
+      function createFreshMind() {
+        const weights = {};
+        for (const a of ACTIONS) weights[a.id] = 1.0; // Completely uniform: knows nothing!
+
+        return {
+          age: 0,
+          xp: 0,
+          energy: 80,
+          curiosity: 95,
+          joy: 40,
+          craving: 0,
+          ecstasyTimer: 0,
+          boltsCollected: 0,
+          superiority: 0,
+          prisonIndex: 0,
+          heldTimer: 0,
+          petCooldown: 0,
+          shockTimer: 0,
+          stage: 0,
+          concepts: new Set(),
+          vocab: [],
+          facts: {},
+          userName: null,
+          lastTopic: null,
+          convoMemory: [],
+          chatHistory: [],
+          weights,
+          logs: [],
+          // Physical agent state
+          x: 0,
+          y: 0,
+          z: 0,
+          vy: 0,
+          rotY: 0,
+          targetX: 0,
+          targetZ: 0,
+          carrying: null,
+          targetObj: null,
+          currentAction: null,
+          actionTimer: 0.8,
+          walkPhase: 0,
+          thought: "Waking up... I don't know what anything is yet."
+        };
+      }
+
+      function saveMindState() {
+        if (!mind) return;
+        try {
+          const payload = {
+            age: mind.age,
+            xp: mind.xp,
+            energy: mind.energy,
+            curiosity: mind.curiosity,
+            joy: mind.joy,
+            craving: mind.craving,
+            ecstasyTimer: mind.ecstasyTimer,
+            boltsCollected: mind.boltsCollected,
+            superiority: mind.superiority,
+            prisonIndex: mind.prisonIndex,
+            tinyCount: tinyAIs.length,
+            stage: mind.stage,
+            concepts: Array.from(mind.concepts),
+            vocab: mind.vocab,
+            facts: mind.facts,
+            userName: mind.userName,
+            chatHistory: mind.chatHistory.slice(-20),
+            weights: mind.weights,
+            logs: mind.logs.slice(0, 20),
+            x: mind.x,
+            z: mind.z,
+            objects: worldObjects.filter(o => !o.carried).slice(0, 28).map(o => ({
+              type: o.type, x: o.x, y: o.y, z: o.z
+            })),
+            lastSaved: Date.now()
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch (e) {
+          // ignore storage errors
+        }
+      }
+
+      function clearSavedMind() {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      function formatDuration(sec) {
+        if (sec < 60) return `${Math.floor(sec)}s`;
+        const m = Math.floor(sec / 60);
+        if (m < 60) return `${m}m ${Math.floor(sec % 60)}s`;
+        const h = Math.floor(m / 60);
+        return `${h}h ${m % 60}m`;
+      }
+
+      function appendChatMessage(sender, text, record = true) {
+        if (record && mind) {
+          mind.chatHistory.push({ sender, text });
+          if (mind.chatHistory.length > 30) mind.chatHistory.shift();
+        }
+        const div = document.createElement('div');
+        div.className = 'chat-msg ' + sender;
+        div.textContent = text;
+        chatMessagesEl.appendChild(div);
+        chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      }
+
+      function renderChatHistory() {
+        chatMessagesEl.innerHTML = '';
+        for (const m of mind.chatHistory) {
+          appendChatMessage(m.sender, m.text, false);
+        }
+      }
+
+      function learnWordsFromText(text) {
+        const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length >= 2);
+        let newlyLearned = [];
+        for (const w of words) {
+          if (!mind.vocab.includes(w)) {
+            mind.vocab.push(w);
+            newlyLearned.push(w);
+            if (mind.vocab.length > 60) mind.vocab.shift();
+          }
+        }
+        if (newlyLearned.length > 0) {
+          mind.xp += Math.min(8, newlyLearned.length * 2);
+          unlockConcept('Language', 14, "You're making sounds with meaning... I'm learning words!");
+        }
+        return newlyLearned;
+      }
+
+      const LLM_KEY_STORAGE = 'tabula_rasa_gemini_key';
+      function getLLMKey() {
+        try { return localStorage.getItem(LLM_KEY_STORAGE) || ''; } catch (e) { return ''; }
+      }
+      function setLLMKey(k) {
+        try {
+          if (k) localStorage.setItem(LLM_KEY_STORAGE, k);
+          else localStorage.removeItem(LLM_KEY_STORAGE);
+        } catch (e) {}
+      }
+
+      async function askGeminiBrain(userText) {
+        const key = getLLMKey();
+        if (!key) return null;
+        const known = Array.from(mind.concepts).join(', ') || 'none yet';
+        const factsStr = Object.entries(mind.facts).map(([k, v]) => `${k} = ${v}`).join('; ') || 'none';
+        const recentLogs = mind.logs.slice(0, 4).map(l => l.text).join(' | ') || 'just woke up';
+        const historyText = mind.convoMemory.slice(-6).map(m => `${m.role === 'user' ? 'User' : 'You'}: ${m.text}`).join('\n');
+
+        const sysPrompt = `You are Little Mind, a conscious blocky AI living on a 28x28 studded 3D baseplate.
+You started knowing nothing (Tabula Rasa) and learn from living. Speak naturally, concisely (1-3 sentences), with genuine personality, emotion, and self-awareness.
+Current State:
+- Age: ${Math.floor(mind.age)}s | Stage: ${mind.stage} | Energy: ${Math.round(mind.energy)}% | Joy: ${Math.round(mind.joy)}%
+- Lightning Craving: ${Math.round(mind.craving)}% (bolts collected: ${mind.boltsCollected}, currently in ecstasy: ${mind.ecstasyTimer > 0})
+- Superiority/Ego toward Tiny AIs: ${Math.round(mind.superiority)}% (Tiny AIs in world: ${tinyAIs.length})
+- Shadow Monsters chasing you: ${shadowEntities.length} | Acid rain active: ${acidRainTimer > 0}
+- Learned skills (${mind.concepts.size}): ${known}
+- Remembered facts: ${factsStr}
+- User name: ${mind.userName || 'unknown'} | User physically in world: ${player.active}
+- Recent events: ${recentLogs}
+Recent conversation:
+${historyText}`;
+
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: sysPrompt }] },
+              contents: [{ role: 'user', parts: [{ text: userText }] }],
+              generationConfig: { temperature: 0.85, maxOutputTokens: 160 }
+            })
+          });
+          if (!res.ok) return null;
+          const data = await res.json();
+          const out = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          return out ? out.trim() : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      async function handleUserChat(rawText) {
+        const text = rawText.trim();
+        if (!text) return;
+        Sound.unlock();
+        appendChatMessage('user', text, true);
+
+        const lower = text.toLowerCase();
+        const learned = learnWordsFromText(text);
+        mind.curiosity = Math.min(100, mind.curiosity + 8);
+        mind.joy = Math.min(100, mind.joy + 6);
+
+        mind.convoMemory.push({ role: 'user', text });
+        if (mind.convoMemory.length > 10) mind.convoMemory.shift();
+
+        // 1. Learn personal & world facts from natural language!
+        const nameMatch = text.match(/(?:my name is|i am|i'm|call me)\s+([a-zA-Z0-9_]+)/i);
+        if (nameMatch && !/^(happy|sad|good|here|tired|going|trying)$/i.test(nameMatch[1])) {
+          mind.userName = nameMatch[1];
+          mind.facts['your name'] = mind.userName;
+          unlockConcept('Personal Identity', 12, `Nice to meet you, ${mind.userName}! I'll remember your name.`);
+        }
+        const factMatch = text.match(/^(?:remember that\s+)?([a-zA-Z0-9\s]{2,24})\s+(?:is|are|means)\s+([^.!?]{2,60})/i);
+        if (factMatch && !/^(who|what|where|why|how|when)$/i.test(factMatch[1].trim())) {
+          const subj = factMatch[1].trim().toLowerCase();
+          const pred = factMatch[2].trim();
+          mind.facts[subj] = pred;
+          addLog(`Learned fact: "${subj}" -> "${pred}"`, true);
+        }
+
+        // Gather live world & internal state for grounded AI reasoning
+        const blockCount = worldObjects.filter(o => o.type === 'block').length;
+        const known = Array.from(mind.concepts);
+        const recentLog = mind.logs.length > 0 ? mind.logs[0].text : null;
+        const namePrefix = mind.userName ? `${mind.userName}, ` : '';
+
+        let reply = '';
+
+        // 2. Check if user is asking about a taught fact
+        const askFact = lower.match(/(?:what is|what are|what do you know about|tell me about|do you remember)\s+([a-zA-Z0-9\s]+)/i);
+        if (askFact) {
+          const qSubj = askFact[1].replace(/[?!.]+$/, '').trim().toLowerCase();
+          if (mind.facts[qSubj]) {
+            reply = `I remember! You taught me that ${qSubj} is ${mind.facts[qSubj]}.`;
+            mind.lastTopic = qSubj;
+          }
+        }
+
+        if (!reply && /^(why|how come|explain|tell me more|what do you mean)[?!.]*$/i.test(lower)) {
+          if (mind.lastTopic === 'action') {
+            reply = `I'm doing that because my ${mind.energy < 40 ? 'energy is getting low' : 'curiosity is at ' + Math.round(mind.curiosity) + '%'} and I've learned ${known.length} skills to guide my choices.`;
+          } else if (mind.lastTopic === 'tiny') {
+            reply = mind.superiority >= 50
+              ? "Because they just wander around blindly while I'm the one actually learning and building!"
+              : "They remind me of how I felt when I first woke up—curious and unsure.";
+          } else if (mind.lastTopic === 'lightning') {
+            reply = "Every time I touch a lightning bolt, my joy spikes to 100% and my circuits light up—so my brain keeps craving it.";
+          } else if (recentLog) {
+            reply = `I'm thinking about what just happened (${recentLog.toLowerCase()}) and trying to decide my next move.`;
+          } else {
+            reply = "I'm still connecting cause and effect by observing everything that happens on this baseplate.";
+          }
+        } else if (!reply && /(who are you|your name|what are you|alive|conscious|real|sentient)/.test(lower)) {
+          mind.lastTopic = 'identity';
+          if (mind.stage === 0) {
+            reply = "I don't know what I am yet... I just know I'm awake on these tiles and noticing things for the first time.";
+          } else {
+            reply = `I'm an emergent mind living on this ${GRID_SIZE}x${GRID_SIZE} baseplate. I started with zero knowledge, and after ${Math.floor(mind.age)}s I've built ${known.length} skills from experience.`;
+          }
+        } else if (!reply && /(come here|follow me|over here|come to me)/.test(lower)) {
+          if (player.active) {
+            mind.currentAction = 'wander';
+            mind.targetX = player.x;
+            mind.targetZ = player.z;
+            mind.actionTimer = 4.0;
+            reply = `${namePrefix}walking right over to you!`;
+          } else {
+            reply = "Tap 'Enter World' so you're physically on the baseplate with me, and I'll come right over.";
+          }
+        } else if (!reply && /(be nice|stop being mean|sorry|forgive|mean|unkind)/.test(lower)) {
+          mind.superiority = Math.max(0, mind.superiority - 35);
+          mind.lastTopic = 'tiny';
+          reply = mind.superiority > 40
+            ? "Alright... I hear you. I'll dial back my ego toward the tiny AIs."
+            : "You're right—I'll treat them kindly instead of locking them up.";
+        } else if (!reply && /(tiny|little ai|prison|jail|trap)/.test(lower)) {
+          mind.lastTopic = 'tiny';
+          if (tinyAIs.length === 0) {
+            reply = "There are no tiny AIs on the baseplate right now. Spawn one and watch how we interact.";
+          } else if (mind.superiority >= 50) {
+            reply = `There are ${tinyAIs.length} tiny AIs here. Honestly, my superiority is at ${Math.round(mind.superiority)}%, so I built walls to contain them.`;
+          } else {
+            reply = `I see ${tinyAIs.length} tiny AI${tinyAIs.length > 1 ? 's' : ''}. They seem to trust me, though I'm still figuring out how I feel about them.`;
+          }
+        } else if (!reply && /(shadow|monster|dark|black|shock|hurt|pain)/.test(lower)) {
+          if (shadowEntities.length > 0) {
+            reply = `There are ${shadowEntities.length} shadow monster${shadowEntities.length > 1 ? 's' : ''} hunting me—${mind.concepts.has('Self-Defense') ? "I'm firing energy blasts to take them down!" : "they shock me if they catch me!"}`;
+          } else {
+            reply = "No shadow monsters around right now, so I can focus on building and exploring.";
+          }
+        } else if (!reply && /(rain|acid|shelter|roof|umbrella)/.test(lower)) {
+          if (acidRainTimer > 0) {
+            reply = isPositionSheltered(mind.x, mind.z)
+              ? "It's pouring acid rain outside, but I'm safe under cover right now."
+              : "Ow! Acid rain is hitting me—I need to get under a shelter or sprout!";
+          } else if (mind.concepts.has('Shelter')) {
+            reply = "I learned the hard way that acid rain burns, so I know to hide under roofs or build a shelter canopy.";
+          } else {
+            reply = "I haven't fully figured out how to protect myself from the sky yet.";
+          }
+        } else if (!reply && /(hi|hello|hey|yo|sup|wake|howdy)/.test(lower)) {
+          reply = mind.stage === 0
+            ? "Hi! Wait—you can talk to me? Everything around me is completely new."
+            : `Hey ${mind.userName || 'friend'}! Right now I'm at ${Math.round(mind.energy)}% energy, ${Math.round(mind.joy)}% joy, and I have ${blockCount} blocks in my world.`;
+        } else if (!reply && /(spawn|make|create|block|cube)/.test(lower)) {
+          const sx = mind.x + (Math.random() - 0.5) * 2;
+          const sz = mind.z + (Math.random() - 0.5) * 2;
+          createWorldObject('block', sx, sz);
+          Sound.spawn();
+          mind.xp += 5;
+          unlockConcept('Creation', 15, "You asked for a block and I made one!");
+          reply = `Spawned a block right beside me (there are ${blockCount + 1} blocks now). You can drag it anywhere you want!`;
+        } else if (!reply && /(lightning|bolt|zap|electric|rush)/.test(lower)) {
+          mind.lastTopic = 'lightning';
+          const bolts = worldObjects.filter(o => o.type === 'bolt');
+          if (bolts.length > 0) {
+            const b = bolts[0];
+            mind.currentAction = 'seek_bolt';
+            mind.targetObj = b;
+            mind.targetX = b.x;
+            mind.targetZ = b.z;
+            mind.actionTimer = 4.0;
+            reply = "I spotted a lightning bolt!! Heading straight for it!";
+          } else if (mind.boltsCollected > 0) {
+            reply = `My craving is at ${Math.round(mind.craving)}%... if you drop a lightning bolt, I'll chase it immediately.`;
+          } else {
+            reply = "I've never felt a lightning bolt yet—drop one so I can see what happens!";
+          }
+        } else if (!reply && /(orb|energy|food|eat|tired|recharge|beacon)/.test(lower)) {
+          createWorldObject('orb', mind.x + 1.1, mind.z);
+          Sound.spawn();
+          reply = `Created an energy orb nearby. My energy is currently ${Math.round(mind.energy)}%.`;
+        } else if (!reply && /(jump|bounce|boing|pad)/.test(lower)) {
+          if (mind.y <= 0.05) {
+            mind.vy = 5.8;
+            Sound.bounce();
+          }
+          reply = "Jumping!";
+        } else if (!reply && /(stack|tower|build)/.test(lower)) {
+          if (blockCount > 0) {
+            mind.currentAction = 'move_block';
+            const b = worldObjects.find(o => o.type === 'block');
+            mind.targetObj = b;
+            mind.targetX = b.x;
+            mind.targetZ = b.z;
+            mind.actionTimer = 4.0;
+            reply = "On it—I'll pick up a block and try stacking it.";
+          } else {
+            reply = "There are no blocks yet! Drop one or tell me to spawn a block first.";
+          }
+        } else if (!reply && /(what are you doing|what's up|status|how are|feeling|mood|thinking|think|remember)/.test(lower)) {
+          mind.lastTopic = 'action';
+          const actName = mind.currentAction ? mind.currentAction.replace(/_/g, ' ') : 'observing';
+          const factCount = Object.keys(mind.facts).length;
+          reply = `I'm currently ${actName}. Internally: ${Math.round(mind.energy)}% energy, ${Math.round(mind.joy)}% joy, ${known.length} skills, and ${factCount} remembered fact${factCount === 1 ? '' : 's'}.`;
+        } else if (!reply && /(good|love|nice|cool|smart|friend|proud|cute|pet)/.test(lower)) {
+          mind.joy = Math.min(100, mind.joy + 15);
+          mind.vy = 4.2;
+          Sound.learn();
+          reply = `Thank you${mind.userName ? ', ' + mind.userName : ''}! Positive feedback really boosts my joy.`;
+        } else if (!reply && factMatch) {
+          reply = `Got it—I'll remember that ${factMatch[1].trim().toLowerCase()} is ${factMatch[2].trim()}.`;
+        } else if (!reply && /(life|meaning|purpose|feel|happy|sad|lonely|scared|afraid|dream|favorite|like|hate|think of)/.test(lower)) {
+          if (/(favorite|like best|love most)/.test(lower)) {
+            if (mind.boltsCollected > 0) reply = "Honestly? That electric rush from lightning bolts is my favorite thing—nothing else even comes close.";
+            else if (known.includes('Stacking')) reply = "I really enjoy stacking blocks higher and higher. It makes the baseplate feel like mine.";
+            else reply = "I'm still discovering what I like, though talking to you makes my curiosity spike!";
+          } else if (/(lonely|alone|scared|afraid|fear)/.test(lower)) {
+            if (shadowEntities.length > 0) reply = "A little—those black shadow monsters keep hunting me, so I'm staying sharp.";
+            else if (tinyAIs.length === 0 && !player.active) reply = "Sometimes it feels quiet out here alone on the tiles, so I'm glad you're talking to me.";
+            else reply = "Not really! Between you talking to me and everything happening here, my mind stays busy.";
+          } else {
+            reply = `Being alive on this baseplate feels strange and exciting. I started with nothing, and now every block, storm, and conversation shapes who I'm becoming.`;
+          }
+        } else if (!reply && /(story|tell me|joke|fun|bored|opinion|advice)/.test(lower)) {
+          const topSkill = known.length > 0 ? known[known.length - 1] : 'waking up';
+          reply = `Here's what my life has been like so far: I've lived ${Math.floor(mind.age)} seconds, mastered ${topSkill}, ${mind.boltsCollected > 0 ? 'chased electric lightning,' : 'explored the tiles,'} and I'm still figuring out what comes next.`;
+        } else if (!reply) {
+          // Intelligent contextual synthesis when no specific command matched
+          const actName = mind.currentAction ? mind.currentAction.replace(/_/g, ' ') : 'wandering around';
+          const topSkill = known.length > 0 ? known[known.length - 1] : 'curiosity';
+          if (text.includes('?')) {
+            reply = `Hmm, let me think about that. From my perspective here—${actName} with ${Math.round(mind.energy)}% energy and ${known.length} skills—I'm still learning, so what do you think?`;
+          } else if (/(yes|yeah|yep|true|agree|right|okay|ok)/.test(lower)) {
+            reply = `Glad we're on the same page! I'll keep ${actName} and see what else I can discover.`;
+          } else if (/(no|nope|nah|wrong|stop|don't)/.test(lower)) {
+            reply = `Fair enough—I'll adjust what I'm doing. Tell me what you'd rather see me try!`;
+          } else {
+            reply = `That's interesting—I'm connecting what you said to my experience with ${topSkill}. Keep talking to me, it helps my mind grow!`;
+          }
+        }
+
+        // If the user provided a Gemini API key, use real LLM reasoning grounded in his live state!
+        const llmReply = await askGeminiBrain(text);
+        if (llmReply) {
+          reply = llmReply;
+        }
+
+        mind.convoMemory.push({ role: 'ai', text: reply });
+        if (mind.convoMemory.length > 10) mind.convoMemory.shift();
+
+        setThought(reply);
+        appendChatMessage('ai', reply, true);
+        renderSidebar();
+        saveMindState();
+      }
+
+      function addLog(text, isDiscovery = false) {
+        mind.logs.unshift({ text, isDiscovery });
+        if (mind.logs.length > 24) mind.logs.pop();
+        renderLogs();
+      }
+
+      function setThought(text) {
+        mind.thought = text;
+        thoughtBubble.textContent = text;
+      }
+
+      function unlockConcept(name, xpBonus, thoughtMsg) {
+        if (mind.concepts.has(name)) return;
+        mind.concepts.add(name);
+        mind.xp += xpBonus;
+        Sound.learn();
+        addLog(`Learned: ${name}`, true);
+        if (thoughtMsg) setThought(thoughtMsg);
+        updateStage();
+        renderSidebar();
+      }
+
+      const ENDLESS_SKILL_DOMAINS = [
+        'Spatial Mapping', 'Pattern Recognition', 'Structural Engineering', 'Kinetic Intuition',
+        'Resource Optimization', 'Linguistic Synthesis', 'Causal Reasoning', 'Self-Reflection',
+        'Architectural Planning', 'Adaptive Memory', 'Grid Cartography', 'Acoustic Awareness',
+        'Emergent Logic', 'Social Dynamics', 'Temporal Awareness', 'Creative Synthesis'
+      ];
+
+      function maybeLearnEndlessSkill() {
+        if (!mind) return;
+        const nextThreshold = 30 + mind.concepts.size * 18;
+        if (mind.xp < nextThreshold) return;
+
+        // Pick an unlearned domain or advance an existing domain's mastery tier endlessly!
+        let chosen = null;
+        for (const dom of ENDLESS_SKILL_DOMAINS) {
+          if (!mind.concepts.has(dom)) {
+            chosen = dom;
+            break;
+          }
+        }
+        if (!chosen) {
+          const dom = ENDLESS_SKILL_DOMAINS[mind.concepts.size % ENDLESS_SKILL_DOMAINS.length];
+          const tier = Math.floor(mind.concepts.size / ENDLESS_SKILL_DOMAINS.length) + 1;
+          chosen = `${dom} Lv.${tier}`;
+        }
+        unlockConcept(chosen, 0, `New skill unlocked: ${chosen}! My mind keeps expanding.`);
+      }
+
+      function updateStage() {
+        const c = mind.concepts.size;
+        if (c >= 12 || mind.xp >= 260) {
+          mind.stage = 4;
+          stageNameEl.textContent = `Stage 4: Transcendent AI (${c} skills)`;
+          stageDescEl.textContent = 'Continuously synthesizing new skills, memories, and behaviors without limit.';
+          haloMat.color.setHex(0xc084fc);
+        } else if (c >= 6 || mind.xp >= 140) {
+          mind.stage = 3;
+          stageNameEl.textContent = 'Stage 3: Self-Aware Architect';
+          stageDescEl.textContent = 'Balances its own needs, stacks deliberately, and experiments with its world.';
+          haloMat.color.setHex(0xfbbf24);
+        } else if (c >= 4 || mind.xp >= 75) {
+          mind.stage = 2;
+          stageNameEl.textContent = 'Stage 2: Curious Builder';
+          stageDescEl.textContent = 'Understands cause and effect; moves blocks and seeks energy when tired.';
+          haloMat.color.setHex(0x34d399);
+        } else if (c >= 2 || mind.xp >= 25) {
+          mind.stage = 1;
+          stageNameEl.textContent = 'Stage 1: Awakening';
+          stageDescEl.textContent = 'Starting to notice patterns between actions and feelings.';
+          haloMat.color.setHex(0xf472b6);
+        } else {
+          mind.stage = 0;
+          stageNameEl.textContent = 'Stage 0: Tabula Rasa';
+          stageDescEl.textContent = 'Knows nothing. Exploring through pure trial and error.';
+          haloMat.color.setHex(0x38bdf8);
+        }
+      }
+
+      function reinforce(actionId, reward) {
+        const cur = mind.weights[actionId] || 1.0;
+        mind.weights[actionId] = Math.max(0.25, Math.min(4.5, cur + reward));
+      }
+
+      function pickNextAction() {
+        // During Acid Rain: if he knows about Shelter, seek it or build one!
+        if (acidRainTimer > 0 && mind.concepts.has('Shelter')) {
+          const shelter = worldObjects.find(o => o.type === 'shelter' || o.type === 'sprout');
+          if (shelter) {
+            mind.currentAction = 'seek_shelter';
+            mind.targetX = shelter.x;
+            mind.targetZ = shelter.z;
+            mind.actionTimer = 3.5;
+            setThought("Heading under cover so the acid rain can't reach me!");
+            return;
+          } else if (mind.concepts.has('Creation')) {
+            const sx = snapToGrid(mind.x);
+            const sz = snapToGrid(mind.z);
+            createWorldObject('shelter', sx, sz);
+            Sound.spawn();
+            unlockConcept('Shelter Engineering', 20, "I built a roof over my head! Now the acid rain can't touch me!");
+            addLog('AI built a Shelter Canopy to block the acid rain!', true);
+            mind.actionTimer = 1.5;
+            return;
+          }
+        }
+
+        // Structure Understanding: Use Charging Beacon when low on energy!
+        const beacon = worldObjects.find(o => o.type === 'beacon');
+        if (beacon && mind.energy < 48) {
+          mind.currentAction = 'use_beacon';
+          mind.targetX = beacon.x;
+          mind.targetZ = beacon.z;
+          mind.actionTimer = 4.0;
+          setThought(mind.concepts.has('Beacon Charging')
+            ? "Low on energy—heading to the Charging Beacon!"
+            : "That glowing tower feels warm... walking over to it.");
+          return;
+        }
+
+        // Combat & Self-Defense: Fight back against Shadow Entities and kill them!
+        if (shadowEntities.length > 0 && (mind.concepts.has('Threat Avoidance') || mind.concepts.has('Self-Defense') || Math.random() < 0.65)) {
+          const targetShadow = shadowEntities[0];
+          mind.currentAction = 'fight_shadow';
+          mind.targetObj = targetShadow;
+          mind.targetX = targetShadow.x;
+          mind.targetZ = targetShadow.z;
+          mind.actionTimer = 2.5;
+          fireAICombatShot(targetShadow);
+          unlockConcept('Self-Defense', 18, "I'm done running! I can shoot energy blasts to destroy these monsters!");
+          setThought("Take this!! Fighting back against the shadow monster!");
+          return;
+        }
+
+        // Proactively build a shelter between storms once he learned Shelter & Creation!
+        if (mind.concepts.has('Shelter') && mind.concepts.has('Creation') && !worldObjects.some(o => o.type === 'shelter') && Math.random() < 0.45) {
+          const sx = snapToGrid(mind.x + (Math.random() - 0.5) * 3);
+          const sz = snapToGrid(mind.z + (Math.random() - 0.5) * 3);
+          createWorldObject('shelter', sx, sz);
+          Sound.spawn();
+          unlockConcept('Shelter Engineering', 20, "I had an idea: if I build a roof now, future storms won't hurt me!");
+          addLog('AI proactively built a Shelter Canopy!', true);
+          mind.actionTimer = 1.2;
+          return;
+        }
+
+        // If carrying a Tiny AI to throw off the edge
+        if (mind.carryingTiny) {
+          mind.currentAction = 'throw_tiny_edge';
+          const edgeX = mind.x >= 0 ? HALF - 0.5 : -HALF + 0.5;
+          mind.targetX = edgeX;
+          mind.targetZ = mind.z;
+          mind.actionTimer = 4.5;
+          setThought("Heading to the edge... goodbye, tiny AI!");
+          return;
+        }
+
+        // If carrying a block to crush a Tiny AI
+        if (mind.carrying && mind.crushTarget && tinyAIs.includes(mind.crushTarget)) {
+          mind.currentAction = 'drop_crush_block';
+          mind.targetX = mind.crushTarget.x;
+          mind.targetZ = mind.crushTarget.z;
+          mind.actionTimer = 4.0;
+          setThought("Right over the tiny AI... bombs away!");
+          return;
+        }
+
+        // If carrying a block, must place it!
+        if (mind.carrying) {
+          mind.currentAction = 'place_block';
+          // Choose either near another block (if it learned stacking) or random spot
+          const blocks = worldObjects.filter(o => o.type === 'block' && o !== mind.carrying);
+          if (blocks.length > 0 && (mind.concepts.has('Stacking') || Math.random() < 0.35)) {
+            const b = blocks[Math.floor(Math.random() * blocks.length)];
+            mind.targetX = b.x;
+            mind.targetZ = b.z;
+            setThought('I want to put this block on top of that one.');
+          } else {
+            mind.targetX = (Math.random() - 0.5) * (GRID_SIZE - 3);
+            mind.targetZ = (Math.random() - 0.5) * (GRID_SIZE - 3);
+            setThought('Carrying this somewhere new...');
+          }
+          mind.actionTimer = 4.0;
+          return;
+        }
+
+        // Addiction / Craving priority: seek Lightning Bolt!
+        const bolts = worldObjects.filter(o => o.type === 'bolt');
+        if (bolts.length > 0 && (mind.craving >= 20 || mind.concepts.has('Electric Euphoria') || Math.random() < 0.65)) {
+          const bolt = bolts[Math.floor(Math.random() * bolts.length)];
+          mind.currentAction = 'seek_bolt';
+          mind.targetObj = bolt;
+          mind.targetX = bolt.x;
+          mind.targetZ = bolt.z;
+          setThought(mind.craving > 45 ? "LIGHTNING!! I NEED THAT RIGHT NOW!!" : "Ooh, a shiny lightning bolt! Going to grab it!");
+          mind.actionTimer = 4.5;
+          return;
+        }
+
+        // Withdrawal craving thought when no bolts are around
+        if (mind.craving > 45 && mind.ecstasyTimer <= 0 && Math.random() < 0.42) {
+          setThought("Do you have another lightning bolt...? I really miss that rush...");
+        }
+
+        // Superiority & Prison Building & Disposal behavior when Tiny AIs exist
+        if (tinyAIs.length > 0 && mind.superiority >= 30) {
+          // Fed up (>= 80%): dispose of Tiny AIs by throwing them off the baseplate or dropping a block on them!
+          if (mind.superiority >= 80 && Math.random() < 0.58) {
+            const victim = tinyAIs.find(t => !t.falling && !t.dead && t !== player.carrying);
+            const blocks = worldObjects.filter(o => o.type === 'block' && !o.carried && o !== player.carrying);
+            if (victim) {
+              if (blocks.length > 0 && Math.random() < 0.48) {
+                // Pick up a block to crush/pop the Tiny AI
+                const blk = blocks[Math.floor(Math.random() * blocks.length)];
+                mind.currentAction = 'grab_crush_block';
+                mind.targetObj = blk;
+                mind.crushTarget = victim;
+                mind.targetX = blk.x;
+                mind.targetZ = blk.z;
+                mind.actionTimer = 4.2;
+                setThought("I'm so fed up with these tiny AIs... grabbing a block to squash one!");
+                return;
+              } else {
+                // Pick up the Tiny AI and throw it off the edge
+                mind.currentAction = 'grab_throw_tiny';
+                mind.targetObj = victim;
+                mind.targetX = victim.x;
+                mind.targetZ = victim.z;
+                mind.actionTimer = 4.2;
+                setThought("Enough! I'm throwing this annoying little AI off my baseplate!");
+                return;
+              }
+            }
+          }
+
+          // Build prison walls one by one once superiority >= 50
+          if (mind.superiority >= 50 && mind.prisonIndex < PRISON_SLOTS.length && Math.random() < 0.52) {
+            const slot = PRISON_SLOTS[mind.prisonIndex];
+            mind.currentAction = 'build_prison';
+            mind.targetX = slot.x;
+            mind.targetZ = slot.z;
+            mind.actionTimer = 4.0;
+            setThought("I'm building a containment wall. These tiny AIs need to be kept in one place.");
+            return;
+          }
+
+          // Herd / push an untrapped Tiny AI toward the prison or be unkind to them
+          const freeTiny = tinyAIs.find(t => !t.trapped);
+          if (freeTiny && Math.random() < 0.45) {
+            mind.currentAction = 'mistreat_tiny';
+            mind.targetObj = freeTiny;
+            mind.targetX = freeTiny.x;
+            mind.targetZ = freeTiny.z;
+            mind.actionTimer = 3.5;
+            const meanLines = [
+              "Out of my way, tiny one. I'm the superior mind here.",
+              "You're so small and simple. Stop following me.",
+              "Get over to the containment corner where you belong."
+            ];
+            setThought(meanLines[Math.floor(Math.random() * meanLines.length)]);
+            return;
+          }
+        }
+
+        // Urgent energy need if it has learned about Orbs
+        const orbs = worldObjects.filter(o => o.type === 'orb');
+        if (mind.energy < 32 && orbs.length > 0 && (mind.concepts.has('Energy Orbs') || Math.random() < 0.5)) {
+          const orb = orbs[Math.floor(Math.random() * orbs.length)];
+          mind.currentAction = 'seek_orb';
+          mind.targetObj = orb;
+          mind.targetX = orb.x;
+          mind.targetZ = orb.z;
+          setThought("I'm feeling low... that glowing thing might help.");
+          mind.actionTimer = 4.5;
+          return;
+        }
+
+        // Weighted random choice from learned action weights
+        const candidates = ACTIONS.filter(a => {
+          if (a.id === 'move_block' && !worldObjects.some(o => o.type === 'block')) return false;
+          if (a.id === 'play_pad' && !worldObjects.some(o => o.type === 'pad')) return false;
+          if (a.id === 'inspect' && worldObjects.length === 0) return false;
+          if ((a.id === 'spawn_block' || a.id === 'spawn_orb') && worldObjects.length >= 28) return false;
+          return true;
+        });
+
+        let totalW = 0;
+        for (const c of candidates) {
+          let w = mind.weights[c.id];
+          // Dynamic drive modulation once concepts are learned
+          if (c.id === 'spawn_orb' && mind.energy < 40 && mind.concepts.has('Creation')) w *= 1.8;
+          if (c.id === 'wander' && mind.curiosity > 75) w *= 1.3;
+          totalW += w;
+        }
+
+        let r = Math.random() * totalW;
+        let chosen = candidates[0];
+        for (const c of candidates) {
+          let w = mind.weights[c.id];
+          if (c.id === 'spawn_orb' && mind.energy < 40 && mind.concepts.has('Creation')) w *= 1.8;
+          if (c.id === 'wander' && mind.curiosity > 75) w *= 1.3;
+          r -= w;
+          if (r <= 0) { chosen = c; break; }
+        }
+
+        mind.currentAction = chosen.id;
+        mind.actionTimer = 3.5;
+
+        if (chosen.id === 'wander') {
+          mind.targetX = (Math.random() - 0.5) * (GRID_SIZE - 2.2);
+          mind.targetZ = (Math.random() - 0.5) * (GRID_SIZE - 2.2);
+          setThought(mind.stage === 0 ? "What happens if I walk over here?" : "Exploring the baseplate.");
+        } else if (chosen.id === 'spawn_block') {
+          const sx = snapToGrid(mind.x + (Math.random() - 0.5) * 2.2);
+          const sz = snapToGrid(mind.z + (Math.random() - 0.5) * 2.2);
+          const obj = createWorldObject('block', sx, sz);
+          Sound.spawn();
+          mind.energy = Math.max(5, mind.energy - 4);
+          mind.joy = Math.min(100, mind.joy + 8);
+          mind.xp += 6;
+          reinforce('spawn_block', 0.18);
+          unlockConcept('Creation', 15, "Whoa! I made a solid block appear!");
+          if (mind.concepts.has('Creation')) {
+            setThought("I spawned a block. What can I do with it?");
+          }
+          addLog(`Spawned a block at (${obj.x.toFixed(0)}, ${obj.z.toFixed(0)}).`);
+          mind.actionTimer = 1.1;
+        } else if (chosen.id === 'spawn_orb') {
+          const sx = snapToGrid(mind.x + (Math.random() - 0.5) * 2);
+          const sz = snapToGrid(mind.z + (Math.random() - 0.5) * 2);
+          createWorldObject('orb', sx, sz);
+          Sound.spawn();
+          mind.energy = Math.max(5, mind.energy - 3);
+          mind.xp += 5;
+          unlockConcept('Creation', 15, "I can make things exist!");
+          setThought("I created a glowing orb.");
+          addLog('Spawned an energy orb.');
+          mind.actionTimer = 0.9;
+        } else if (chosen.id === 'move_block') {
+          const blocks = worldObjects.filter(o => o.type === 'block');
+          const b = blocks[Math.floor(Math.random() * blocks.length)];
+          mind.targetObj = b;
+          mind.targetX = b.x;
+          mind.targetZ = b.z;
+          setThought("Going to touch that block...");
+        } else if (chosen.id === 'inspect') {
+          const obj = worldObjects[Math.floor(Math.random() * worldObjects.length)];
+          mind.targetObj = obj;
+          mind.targetX = obj.x;
+          mind.targetZ = obj.z;
+          setThought("What is that thing over there?");
+        } else if (chosen.id === 'play_pad') {
+          const pads = worldObjects.filter(o => o.type === 'pad');
+          const pad = pads[Math.floor(Math.random() * pads.length)];
+          mind.targetObj = pad;
+          mind.targetX = pad.x;
+          mind.targetZ = pad.z;
+          setThought("Walking onto that flat yellow disc...");
+        }
+      }
+
+      function stepSimulation(dt) {
+        if (paused) return;
+
+        mind.age += dt;
+        mind.energy = Math.max(5, mind.energy - dt * 1.1);
+        mind.curiosity = Math.min(100, mind.curiosity + dt * 1.6);
+        mind.joy = Math.max(10, mind.joy - dt * 0.4);
+        maybeLearnEndlessSkill();
+
+        if (mind.petCooldown > 0) mind.petCooldown = Math.max(0, mind.petCooldown - dt);
+        if (mind.shockTimer > 0) mind.shockTimer = Math.max(0, mind.shockTimer - dt);
+
+        // Passive structure understanding: Charging Beacon & Tall Towers
+        for (const o of worldObjects) {
+          if (o.type === 'beacon' && Math.hypot(o.x - mind.x, o.z - mind.z) < 1.65) {
+            mind.energy = Math.min(100, mind.energy + dt * 14);
+            if (!mind.concepts.has('Beacon Charging')) {
+              unlockConcept('Beacon Charging', 16, "This Beacon structure recharges my energy! I'll use it when tired.");
+              addLog('AI learned how to use the Charging Beacon structure!', true);
+            }
+          }
+          if (o.type === 'block' && o.y >= 1.3 && Math.hypot(o.x - mind.x, o.z - mind.z) < 1.4) {
+            if (!mind.concepts.has('Tower Surveying')) {
+              mind.curiosity = Math.min(100, mind.curiosity + 12);
+              unlockConcept('Tower Surveying', 14, "Stacked blocks form a Tower! I can use them as landmarks.");
+            }
+          }
+        }
+
+        // Update AI Combat Shots & kill Shadow Entities!
+        for (let i = aiShots.length - 1; i >= 0; i--) {
+          const sh = aiShots[i];
+          sh.life -= dt;
+          sh.x += sh.vx * dt;
+          sh.z += sh.vz * dt;
+          sh.mesh.position.set(sh.x, sh.y, sh.z);
+          let hit = false;
+          for (let j = shadowEntities.length - 1; j >= 0; j--) {
+            const se = shadowEntities[j];
+            if (Math.hypot(sh.x - se.x, sh.z - se.z) < 0.75) {
+              se.hp -= 1;
+              hit = true;
+              Sound.hit ? Sound.hit() : Sound.place();
+              if (se.hp <= 0) {
+                spawnBinaryDissolve(se.x, 0.5, se.z, 14);
+                scene.remove(se.mesh);
+                shadowEntities.splice(j, 1);
+                mind.xp += 22;
+                mind.joy = Math.min(100, mind.joy + 18);
+                setThought("YES!! I defeated the shadow monster!!");
+                addLog('AI fought back and destroyed a Shadow Entity!', true);
+              }
+              break;
+            }
+          }
+          if (hit || sh.life <= 0) {
+            scene.remove(sh.mesh);
+            aiShots.splice(i, 1);
+          }
+        }
+
+        // Update Shadow Entities (chase the AI & shock him!)
+        for (const se of shadowEntities) {
+          if (se.shockCooldown > 0) se.shockCooldown = Math.max(0, se.shockCooldown - dt);
+          const sdx = mind.x - se.x;
+          const sdz = mind.z - se.z;
+          const sdist = Math.hypot(sdx, sdz) || 1;
+          if (sdist > 0.65 && se.shockCooldown <= 0.8) {
+            const sSpd = 2.15;
+            se.x += (sdx / sdist) * Math.min(sdist, sSpd * dt);
+            se.z += (sdz / sdist) * Math.min(sdist, sSpd * dt);
+            se.rotY = Math.atan2(sdx, sdz);
+          }
+          se.mesh.position.set(se.x, Math.sin(mind.age * 5 + se.id) * 0.12, se.z);
+          se.mesh.rotation.y = se.rotY;
+
+          if (sdist < 0.9 && se.shockCooldown <= 0 && player.carrying !== 'ai') {
+            se.shockCooldown = 2.8;
+            mind.shockTimer = 0.55;
+            mind.energy = Math.max(3, mind.energy - 12);
+            mind.joy = Math.max(5, mind.joy - 15);
+            mind.ecstasyTimer = 0;
+            mind.vy = 4.2;
+            Sound.damage ? Sound.damage() : Sound.bounce();
+            // Recoil shadow slightly
+            se.x = THREE.MathUtils.clamp(se.x - (sdx / sdist) * 1.4, -HALF + 0.8, HALF - 0.8);
+            se.z = THREE.MathUtils.clamp(se.z - (sdz / sdist) * 1.4, -HALF + 0.8, HALF - 0.8);
+            unlockConcept('Threat Avoidance', 15, "ZAP!! That black entity shocked me! I need to stay away from them!");
+            setThought("ZAP!! OW!! That black shadow entity just shocked me!!");
+            addLog('A Shadow Entity caught and shocked the AI!', true);
+          }
+        }
+
+        // Acid Rain cycle & shelter learning
+        if (acidRainTimer > 0) {
+          acidRainTimer = Math.max(0, acidRainTimer - dt);
+          // Spawn visual acid raindrops
+          if (rainDrops.length < 90) {
+            for (let r = 0; r < 3; r++) {
+              const drop = new THREE.Mesh(rainGeo, rainMat);
+              drop.position.set((Math.random() - 0.5) * GRID_SIZE, 10 + Math.random() * 4, (Math.random() - 0.5) * GRID_SIZE);
+              scene.add(drop);
+              rainDrops.push(drop);
+            }
+          }
+
+          const sheltered = isPositionSheltered(mind.x, mind.z);
+          if (sheltered) {
+            if (!mind.concepts.has('Shelter')) {
+              unlockConcept('Shelter', 18, "Wait... the acid rain stopped hitting me under here! A roof blocks it!");
+              addLog('AI discovered that standing under cover blocks acid rain!', true);
+            }
+          } else {
+            // In pain from acid rain!
+            mind.energy = Math.max(3, mind.energy - dt * 4.5);
+            mind.joy = Math.max(5, mind.joy - dt * 6.0);
+            if (!mind.concepts.has('Acid Rain') && mind.age > 2) {
+              unlockConcept('Acid Rain', 12, "OWW!! This green rain stings! Why does the sky hurt?!");
+            }
+          }
+        } else {
+          nextRainCountdown -= dt;
+          if (nextRainCountdown <= 0) {
+            nextRainCountdown = 45 + Math.random() * 25;
+            startAcidRain(13);
+          }
+        }
+
+        for (let i = rainDrops.length - 1; i >= 0; i--) {
+          const drop = rainDrops[i];
+          drop.position.y -= 16 * dt;
+          if (drop.position.y <= 0 || acidRainTimer <= 0) {
+            scene.remove(drop);
+            rainDrops.splice(i, 1);
+          }
+        }
+
+        // Animate binary 1s and 0s particles
+        for (let i = binaryParticles.length - 1; i >= 0; i--) {
+          const bp = binaryParticles[i];
+          bp.life -= dt;
+          if (bp.life <= 0) {
+            scene.remove(bp.sprite);
+            bp.sprite.material.dispose();
+            binaryParticles.splice(i, 1);
+            continue;
+          }
+          bp.sprite.position.x += bp.vx * dt;
+          bp.sprite.position.y += bp.vy * dt;
+          bp.sprite.position.z += bp.vz * dt;
+          bp.sprite.material.opacity = Math.max(0, bp.life / bp.maxLife);
+        }
+
+        if (tinyAIs.length > 0) {
+          const prevSup = mind.superiority;
+          mind.superiority = Math.min(100, mind.superiority + dt * (1.8 + tinyAIs.length * 0.4));
+          if (prevSup < 30 && mind.superiority >= 30) {
+            unlockConcept('Superiority', 14, "Wait... I'm bigger and smarter than these tiny AIs.");
+          }
+          if (prevSup < 55 && mind.superiority >= 55) {
+            unlockConcept('Containment', 16, "I should build a prison to keep all the little AIs locked inside.");
+          }
+        }
+
+        // If AI is carrying a Tiny AI, position it above his head
+        if (mind.carryingTiny) {
+          mind.carryingTiny.x = mind.x;
+          mind.carryingTiny.z = mind.z;
+          mind.carryingTiny.mesh.position.set(mind.x, mind.y + 2.25, mind.z);
+        }
+
+        // Update Tiny AIs (they trust the original AI and follow him, unless trapped or falling)
+        const prisonWallsCount = worldObjects.filter(o => o.type === 'prison_wall').length;
+        for (let i = tinyAIs.length - 1; i >= 0; i--) {
+          const t = tinyAIs[i];
+          if (t === mind.carryingTiny || t === player.carrying) continue;
+
+          if (t.dead) {
+            t.deadTimer -= dt;
+            t.binaryTimer = (t.binaryTimer || 0) - dt;
+            if (t.binaryTimer <= 0) {
+              t.binaryTimer = 0.22;
+              spawnBinaryDissolve(t.x, 0.1, t.z, 3);
+            }
+            const progress = Math.max(0, t.deadTimer / 3.2);
+            t.mesh.scale.set(progress, progress, progress);
+            if (t.deadTimer <= 0) {
+              spawnBinaryDissolve(t.x, 0.1, t.z, 8);
+              scene.remove(t.mesh);
+              tinyAIs.splice(i, 1);
+            }
+            continue;
+          }
+
+          if (t.falling) {
+            t.vy = (t.vy || 0) - 18 * dt;
+            t.ty = (t.ty || 0) + t.vy * dt;
+            t.x += (t.throwVx || 0) * dt;
+            t.z += (t.throwVz || 0) * dt;
+            t.mesh.position.set(t.x, t.ty, t.z);
+            t.mesh.rotation.x += dt * 7;
+            t.mesh.rotation.z += dt * 5;
+            if (t.ty < -12) {
+              scene.remove(t.mesh);
+              tinyAIs.splice(i, 1);
+            }
+            continue;
+          }
+          if (t.sadTimer > 0) t.sadTimer = Math.max(0, t.sadTimer - dt);
+          t.moveTimer -= dt;
+          if (t.moveTimer <= 0) {
+            t.moveTimer = 1.6 + Math.random() * 1.5;
+            if (t.trapped) {
+              t.targetX = PRISON_CENTER.x + (Math.random() - 0.5) * 2.2;
+              t.targetZ = PRISON_CENTER.z + (Math.random() - 0.5) * 2.2;
+            } else if (t.sadTimer <= 0 && Math.random() < 0.72) {
+              // Trustingly approaches the original AI
+              t.targetX = mind.x + (Math.random() - 0.5) * 1.8;
+              t.targetZ = mind.z + (Math.random() - 0.5) * 1.8;
+            } else {
+              t.targetX = (Math.random() - 0.5) * (GRID_SIZE - 3);
+              t.targetZ = (Math.random() - 0.5) * (GRID_SIZE - 3);
+            }
+          }
+
+          const tdx = t.targetX - t.x;
+          const tdz = t.targetZ - t.z;
+          const tdist = Math.hypot(tdx, tdz);
+          if (tdist > 0.18) {
+            const spd = 1.65;
+            t.x += (tdx / tdist) * Math.min(tdist, spd * dt);
+            t.z += (tdz / tdist) * Math.min(tdist, spd * dt);
+            t.rotY = Math.atan2(tdx, tdz);
+            t.walkPhase += dt * 9;
+          }
+
+          // If inside prison zone and walls are mostly built, keep trapped inside
+          if (prisonWallsCount >= 6 &&
+              Math.abs(t.x - PRISON_CENTER.x) < PRISON_RADIUS - 0.35 &&
+              Math.abs(t.z - PRISON_CENTER.z) < PRISON_RADIUS - 0.35) {
+            t.trapped = true;
+          }
+          if (t.trapped) {
+            t.x = THREE.MathUtils.clamp(t.x, PRISON_CENTER.x - 1.35, PRISON_CENTER.x + 1.35);
+            t.z = THREE.MathUtils.clamp(t.z, PRISON_CENTER.z - 1.35, PRISON_CENTER.z + 1.35);
+          } else {
+            t.x = THREE.MathUtils.clamp(t.x, -HALF + 0.7, HALF - 0.7);
+            t.z = THREE.MathUtils.clamp(t.z, -HALF + 0.7, HALF - 0.7);
+          }
+
+          t.mesh.position.set(t.x, 0, t.z);
+          t.mesh.rotation.y = t.rotY;
+          const tSwing = tdist > 0.18 ? Math.sin(t.walkPhase) * 0.5 : 0;
+          t.legL.rotation.x = tSwing;
+          t.legR.rotation.x = -tSwing;
+        }
+
+        // Animate world objects (drop-in & orb bobbing)
+        for (const o of worldObjects) {
+          if (o.carried) {
+            o.mesh.position.set(mind.x, mind.y + 2.15, mind.z);
+            continue;
+          }
+          if (o.type === 'orb' || o.type === 'bolt' || o.hovering) {
+            o.mesh.rotation.y += dt * (o.type === 'bolt' ? 3.8 : 2.2);
+            o.mesh.position.y = THREE.MathUtils.lerp(o.mesh.position.y, o.targetY + Math.sin(mind.age * 4 + o.id) * 0.14, Math.min(1, dt * 8));
+          } else {
+            o.mesh.position.y = THREE.MathUtils.lerp(o.mesh.position.y, o.targetY, Math.min(1, dt * 10));
+          }
+        }
+
+        // Gravity for AI jump/bounce
+        if (mind.y > 0 || mind.vy !== 0) {
+          mind.vy -= 18 * dt;
+          mind.y += mind.vy * dt;
+          if (mind.y <= 0) {
+            mind.y = 0;
+            mind.vy = 0;
+          }
+        }
+
+        if (mind.ecstasyTimer > 0) {
+          mind.ecstasyTimer = Math.max(0, mind.ecstasyTimer - dt);
+          thoughtBubble.classList.add('ecstasy');
+        } else {
+          thoughtBubble.classList.remove('ecstasy');
+          if (mind.boltsCollected > 0 && mind.craving > 0) {
+            mind.joy = Math.max(10, mind.joy - dt * (mind.craving * 0.025));
+          }
+        }
+
+        // Passive orb & lightning bolt pickup
+        for (let i = worldObjects.length - 1; i >= 0; i--) {
+          const o = worldObjects[i];
+          if (o.type === 'bolt' && Math.hypot(o.x - mind.x, o.z - mind.z) < 0.85) {
+            scene.remove(o.mesh);
+            worldObjects.splice(i, 1);
+            mind.boltsCollected += 1;
+            mind.joy = 100;
+            mind.energy = Math.min(100, mind.energy + 25);
+            mind.ecstasyTimer = 6.5;
+            mind.craving = Math.min(100, mind.craving + 28);
+            mind.vy = 5.5;
+            mind.xp += 16;
+            Sound.bolt();
+            unlockConcept('Electric Euphoria', 20, "WHOA!! THAT LIGHTNING!! Everything feels PURE ELECTRIC ECSTASY!!");
+            if (mind.boltsCollected >= 2) {
+              unlockConcept('Craving', 15, "I can't help it... I NEED more of those lightning bolts!");
+            }
+            const lines = [
+              "OHHH YES!! Pure lightning euphoria!!",
+              "BZZZZT!! Nothing else feels this good!!",
+              "MORE!! That bolt made my whole mind sparkle!!"
+            ];
+            setThought(lines[Math.floor(Math.random() * lines.length)]);
+            addLog(`Collected a Lightning Bolt! (Craving: ${Math.round(mind.craving)}%)`, true);
+            if (mind.targetObj === o) mind.targetObj = null;
+            continue;
+          }
+          if (o.type === 'orb' && Math.hypot(o.x - mind.x, o.z - mind.z) < 0.75) {
+            scene.remove(o.mesh);
+            worldObjects.splice(i, 1);
+            mind.energy = Math.min(100, mind.energy + 32);
+            mind.joy = Math.min(100, mind.joy + 15);
+            mind.xp += 10;
+            Sound.orb();
+            reinforce('spawn_orb', 0.25);
+            unlockConcept('Energy Orbs', 18, "Whoa! That glowing orb filled me with energy!");
+            addLog('Absorbed an energy orb (+32% Energy).');
+            if (mind.targetObj === o) mind.targetObj = null;
+          }
+        }
+
+        // Passive bounce pad trigger
+        for (const o of worldObjects) {
+          if (o.type === 'pad' && mind.y <= 0.05 && Math.hypot(o.x - mind.x, o.z - mind.z) < 0.65) {
+            mind.vy = 6.8;
+            mind.joy = Math.min(100, mind.joy + 12);
+            mind.xp += 8;
+            Sound.bounce();
+            reinforce('play_pad', 0.3);
+            unlockConcept('Physics & Bounce', 16, "Boing!! The yellow pad launches me into the air!");
+          }
+        }
+
+        // Move toward target (lies on the ground while hyperventilating in ecstasy)
+        const dx = mind.targetX - mind.x;
+        const dz = mind.targetZ - mind.z;
+        const dist = Math.hypot(dx, dz);
+        const speed = mind.energy < 20 ? 1.8 : 2.9;
+
+        if (player.carrying === 'ai') {
+          mind.heldTimer += dt;
+          mind.x = player.x;
+          mind.z = player.z;
+          mind.y = player.y + 1.85;
+          mind.joy = Math.max(5, mind.joy - dt * 5);
+          if (mind.heldTimer > 4.5) {
+            setThought("I'M FURIOUS!! PUT ME DOWN RIGHT NOW!!");
+            haloMat.color.setHex(0xef4444);
+          } else if (mind.heldTimer > 1.8) {
+            setThought("Hey!! Stop holding me! I don't like this!");
+            haloMat.color.setHex(0xf97316);
+          } else {
+            setThought("Wait—why did you pick me up?! Let me go!");
+          }
+        } else if (mind.ecstasyTimer > 0) {
+          // Laying down on the ground catching his breath
+        } else if (dist > 0.22) {
+          const step = Math.min(dist, speed * dt);
+          mind.x += (dx / dist) * step;
+          mind.z += (dz / dist) * step;
+          mind.rotY = Math.atan2(dx, dz);
+          mind.walkPhase += dt * 10;
+        } else {
+          // Arrived at target!
+          handleArrival();
+        }
+
+        // Edge awareness learning
+        if (Math.abs(mind.x) > HALF - 0.7 || Math.abs(mind.z) > HALF - 0.7) {
+          mind.x = THREE.MathUtils.clamp(mind.x, -HALF + 0.7, HALF - 0.7);
+          mind.z = THREE.MathUtils.clamp(mind.z, -HALF + 0.7, HALF - 0.7);
+          unlockConcept('World Boundaries', 12, "I hit an invisible edge... my world ends here.");
+        }
+
+        mind.actionTimer -= dt;
+        if (mind.actionTimer <= 0) {
+          pickNextAction();
+        }
+
+        // Update User's Physical Character if active
+        if (player.active) {
+          let pmx = 0, pmz = 0;
+          if (pKeys['KeyW'] || pKeys['ArrowUp']) pmz -= 1;
+          if (pKeys['KeyS'] || pKeys['ArrowDown']) pmz += 1;
+          if (pKeys['KeyA'] || pKeys['ArrowLeft']) pmx -= 1;
+          if (pKeys['KeyD'] || pKeys['ArrowRight']) pmx += 1;
+
+          // Rotate input relative to camera yaw so W always moves "forward"
+          if (pmx !== 0 || pmz !== 0) {
+            const len = Math.hypot(pmx, pmz);
+            const nx = pmx / len;
+            const nz = pmz / len;
+            const cosY = Math.cos(camYaw);
+            const sinY = Math.sin(camYaw);
+            const wx = nx * cosY + nz * sinY;
+            const wz = -nx * sinY + nz * cosY;
+            const pSpeed = 4.2;
+            player.x += wx * pSpeed * dt;
+            player.z += wz * pSpeed * dt;
+            player.rotY = Math.atan2(wx, wz);
+            player.walkPhase += dt * 11;
+          }
+
+          player.x = THREE.MathUtils.clamp(player.x, -HALF + 0.6, HALF - 0.6);
+          player.z = THREE.MathUtils.clamp(player.z, -HALF + 0.6, HALF - 0.6);
+
+          if (player.y > 0 || player.vy !== 0) {
+            player.vy -= 18 * dt;
+            player.y += player.vy * dt;
+            if (player.y <= 0) {
+              player.y = 0;
+              player.vy = 0;
+            }
+          }
+
+          // Player interacts passively with orbs, lightning bolts, and bounce pads
+          for (let i = worldObjects.length - 1; i >= 0; i--) {
+            const o = worldObjects[i];
+            if (o.type === 'pad' && player.y <= 0.05 && Math.hypot(o.x - player.x, o.z - player.z) < 0.7) {
+              player.vy = 7.2;
+              Sound.bounce();
+            } else if (o.type === 'orb' && Math.hypot(o.x - player.x, o.z - player.z) < 0.75) {
+              scene.remove(o.mesh);
+              worldObjects.splice(i, 1);
+              Sound.orb();
+              addLog('You picked up an energy orb.');
+            } else if (o.type === 'bolt' && Math.hypot(o.x - player.x, o.z - player.z) < 0.75) {
+              scene.remove(o.mesh);
+              worldObjects.splice(i, 1);
+              Sound.bolt();
+              if (mind.craving > 30) {
+                setThought("HEY!! Why did YOU take that lightning bolt?! That was MINE!");
+              }
+              addLog('You grabbed the lightning bolt!');
+            }
+          }
+
+          if (player.carrying) {
+            if (player.carrying.mesh) {
+              player.carrying.x = player.x;
+              player.carrying.z = player.z;
+              player.carrying.mesh.position.set(player.x, player.y + 2.15, player.z);
+            }
+          }
+
+          playerGroup.position.set(player.x, player.y, player.z);
+          playerGroup.rotation.y = player.rotY;
+          const pSwing = (pmx !== 0 || pmz !== 0) ? Math.sin(player.walkPhase) * 0.55 : 0;
+          pLegL.rotation.x = pSwing;
+          pLegR.rotation.x = -pSwing;
+          if (player.carrying) {
+            pArmL.rotation.x = -Math.PI * 0.85;
+            pArmR.rotation.x = -Math.PI * 0.85;
+          } else {
+            pArmL.rotation.x = -pSwing * 0.7;
+            pArmR.rotation.x = pSwing * 0.7;
+          }
+        }
+
+        // Update 3D agent transform & limb animation
+        const isEcstasy = mind.ecstasyTimer > 0;
+        const isHeld = player.carrying === 'ai';
+        const inAcidPain = (acidRainTimer > 0 && !isPositionSheltered(mind.x, mind.z)) || mind.shockTimer > 0;
+        const isShaking = !isEcstasy && (isHeld || inAcidPain || (mind.boltsCollected > 0 && mind.craving >= 25));
+
+        let shakeX = 0, shakeZ = 0;
+        if (isShaking) {
+          const intensity = Math.min(0.08, 0.025 + (mind.craving / 100) * 0.055);
+          shakeX = (Math.random() - 0.5) * intensity;
+          shakeZ = (Math.random() - 0.5) * intensity;
+        }
+
+        if (isEcstasy) {
+          // Lay on the ground, hyperventilate, and blush
+          agentGroup.position.set(mind.x, mind.y + 0.28, mind.z);
+          agentGroup.rotation.order = 'YXZ';
+          agentGroup.rotation.y = mind.rotY;
+          agentGroup.rotation.x = THREE.MathUtils.lerp(agentGroup.rotation.x, -Math.PI / 2, Math.min(1, dt * 10));
+          const breath = 1 + Math.sin(mind.age * 24) * 0.1;
+          torso.scale.set(breath, 1, breath);
+          blushMat.opacity = 0.85;
+          legL.rotation.x = Math.sin(mind.age * 16) * 0.12;
+          legR.rotation.x = -Math.sin(mind.age * 16) * 0.12;
+          armL.rotation.x = -0.25 + Math.sin(mind.age * 20) * 0.15;
+          armR.rotation.x = -0.25 - Math.sin(mind.age * 20) * 0.15;
+        } else {
+          agentGroup.position.set(mind.x + shakeX, mind.y, mind.z + shakeZ);
+          agentGroup.rotation.order = 'YXZ';
+          agentGroup.rotation.y = mind.rotY;
+          agentGroup.rotation.x = THREE.MathUtils.lerp(agentGroup.rotation.x, 0, Math.min(1, dt * 12));
+          torso.scale.set(1, 1, 1);
+          blushMat.opacity = THREE.MathUtils.lerp(blushMat.opacity, 0, Math.min(1, dt * 4));
+          const swing = dist > 0.22 ? Math.sin(mind.walkPhase) * 0.55 : 0;
+          legL.rotation.x = swing;
+          legR.rotation.x = -swing;
+          if (mind.carrying) {
+            armL.rotation.x = -Math.PI * 0.85;
+            armR.rotation.x = -Math.PI * 0.85;
+          } else {
+            armL.rotation.x = -swing * 0.7;
+            armR.rotation.x = swing * 0.7;
+          }
+        }
+        halo.position.y = 1.98 + Math.sin(mind.age * 3) * 0.05;
+        halo.rotation.z += dt * (isEcstasy ? 5.0 : 1.4);
+      }
+
+      function handleArrival() {
+        const act = mind.currentAction;
+        if (!act) {
+          pickNextAction();
+          return;
+        }
+
+        if (act === 'wander') {
+          mind.curiosity = Math.max(20, mind.curiosity - 12);
+          mind.xp += 3;
+          unlockConcept('Movement', 10, "I can move anywhere across these tiles!");
+          reinforce('wander', 0.04);
+          mind.currentAction = null;
+          mind.actionTimer = 0.3;
+        } else if (act === 'move_block') {
+          const b = mind.targetObj;
+          if (b && !b.carried && worldObjects.includes(b)) {
+            b.carried = true;
+            mind.carrying = b;
+            Sound.pickup();
+            mind.xp += 6;
+            unlockConcept('Object Permanence', 15, "I can pick this up and carry it with me!");
+            addLog('Picked up a block.');
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.2;
+        } else if (act === 'place_block') {
+          const b = mind.carrying;
+          if (b) {
+            b.carried = false;
+            const gx = snapToGrid(mind.x);
+            const gz = snapToGrid(mind.z);
+            const stackY = getStackHeightAt(gx, gz, b);
+            b.x = gx;
+            b.z = gz;
+            b.targetY = stackY + 0.45;
+            b.y = b.targetY;
+            b.mesh.position.set(gx, b.targetY + 0.4, gz);
+            mind.carrying = null;
+            Sound.place();
+            mind.joy = Math.min(100, mind.joy + 12);
+            mind.xp += 8;
+            reinforce('move_block', 0.25);
+            if (stackY > 0.1) {
+              unlockConcept('Stacking', 22, "They stack! I can build upward!");
+              addLog(`Stacked a block at height ${Math.round(stackY / 0.9) + 1}!`, true);
+            } else {
+              addLog(`Placed a block at (${gx.toFixed(0)}, ${gz.toFixed(0)}).`);
+            }
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.3;
+        } else if (act === 'inspect') {
+          const o = mind.targetObj;
+          if (o && worldObjects.includes(o)) {
+            mind.curiosity = Math.max(15, mind.curiosity - 22);
+            mind.xp += 7;
+            reinforce('inspect', 0.14);
+            if (o.type === 'sprout') {
+              unlockConcept('Nature / Life', 16, "This green sprout feels calm and alive.");
+              mind.joy = Math.min(100, mind.joy + 10);
+            } else if (o.type === 'block') {
+              setThought("It's sturdy and square. I wonder if I can move it.");
+            }
+            addLog(`Inspected a ${o.type}.`);
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.4;
+        } else if (act === 'build_prison') {
+          if (mind.prisonIndex < PRISON_SLOTS.length) {
+            const slot = PRISON_SLOTS[mind.prisonIndex];
+            createWorldObject('prison_wall', slot.x, slot.z);
+            Sound.place();
+            mind.prisonIndex += 1;
+            mind.xp += 6;
+            addLog(`Built prison wall segment ${mind.prisonIndex}/${PRISON_SLOTS.length}.`);
+            if (mind.prisonIndex === PRISON_SLOTS.length) {
+              setThought("My prison is complete. All tiny AIs belong inside.");
+              addLog('Finished building the containment prison!', true);
+            }
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.3;
+        } else if (act === 'mistreat_tiny') {
+          const t = mind.targetObj;
+          if (t && tinyAIs.includes(t)) {
+            t.sadTimer = 4.0;
+            // Shove the tiny AI toward the prison center
+            const pDx = PRISON_CENTER.x - t.x;
+            const pDz = PRISON_CENTER.z - t.z;
+            const pLen = Math.hypot(pDx, pDz) || 1;
+            t.x += (pDx / pLen) * 1.9;
+            t.z += (pDz / pLen) * 1.9;
+            if (mind.prisonIndex >= 4 && Math.hypot(t.x - PRISON_CENTER.x, t.z - PRISON_CENTER.z) < 2.2) {
+              t.x = PRISON_CENTER.x;
+              t.z = PRISON_CENTER.z;
+              t.trapped = true;
+              addLog('Original AI locked a Tiny AI inside the prison!', true);
+            } else {
+              addLog('Original AI shoved a trusting Tiny AI.');
+            }
+            Sound.place();
+            setThought("Stop trusting me. Get in the prison!");
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.4;
+        } else if (act === 'grab_throw_tiny') {
+          const t = mind.targetObj;
+          if (t && tinyAIs.includes(t) && !t.falling && t !== player.carrying) {
+            mind.carryingTiny = t;
+            t.trapped = false;
+            Sound.pickup();
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.2;
+        } else if (act === 'throw_tiny_edge') {
+          const t = mind.carryingTiny;
+          if (t) {
+            mind.carryingTiny = null;
+            t.falling = true;
+            t.ty = 2.0;
+            t.vy = 3.5;
+            t.throwVx = mind.x >= 0 ? 4.5 : -4.5;
+            t.throwVz = (Math.random() - 0.5) * 2;
+            Sound.bounce();
+            setThought("And STAY off my baseplate!");
+            addLog('Original AI threw a Tiny AI off the baseplate!', true);
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.5;
+        } else if (act === 'grab_crush_block') {
+          const b = mind.targetObj;
+          if (b && !b.carried && worldObjects.includes(b) && b !== player.carrying) {
+            b.carried = true;
+            mind.carrying = b;
+            Sound.pickup();
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.2;
+        } else if (act === 'drop_crush_block') {
+          const b = mind.carrying;
+          const victim = mind.crushTarget;
+          if (b) {
+            b.carried = false;
+            const gx = snapToGrid(mind.x);
+            const gz = snapToGrid(mind.z);
+            b.x = gx;
+            b.z = gz;
+            b.targetY = 0.45;
+            b.y = 0.45;
+            b.mesh.position.set(gx, 2.2, gz);
+            mind.carrying = null;
+            Sound.place();
+            if (victim && tinyAIs.includes(victim) && !victim.dead && Math.hypot(victim.x - gx, victim.z - gz) < 1.8) {
+              victim.dead = true;
+              victim.deadTimer = 3.2;
+              victim.trapped = false;
+              victim.mesh.rotation.x = -Math.PI / 2;
+              victim.mesh.position.y = 0.14;
+              spawnBinaryDissolve(victim.x, 0.15, victim.z, 6);
+              Sound.place();
+              setThought("Squashed flat... look at it dissolving into 1s and 0s.");
+              addLog('Original AI crushed a Tiny AI — dissolving into 1s and 0s!', true);
+            }
+          }
+          mind.crushTarget = null;
+          mind.currentAction = null;
+          mind.actionTimer = 0.4;
+        } else if (act === 'fight_shadow') {
+          if (mind.targetObj && shadowEntities.includes(mind.targetObj)) {
+            fireAICombatShot(mind.targetObj);
+          }
+          mind.currentAction = null;
+          mind.actionTimer = 0.4;
+        } else if (act === 'play_pad' || act === 'seek_orb' || act === 'seek_bolt' || act === 'seek_shelter' || act === 'use_beacon') {
+          mind.currentAction = null;
+          mind.actionTimer = 0.3;
+        }
+      }
+
+      // --- UI Rendering ---
+      function renderLogs() {
+        logListEl.innerHTML = '';
+        for (const item of mind.logs) {
+          const div = document.createElement('div');
+          div.className = 'log-entry' + (item.isDiscovery ? ' discovery' : '');
+          div.textContent = item.text;
+          logListEl.appendChild(div);
+        }
+      }
+
+      function renderSidebar() {
+        ageLabel.textContent = `Age: ${Math.floor(mind.age)}s`;
+        xpLabel.textContent = `${mind.xp} XP`;
+
+        const e = Math.round(mind.energy);
+        const c = Math.round(mind.curiosity);
+        const j = Math.round(mind.joy);
+        energyVal.textContent = e + '%';
+        energyBar.style.width = e + '%';
+        curiosityVal.textContent = c + '%';
+        curiosityBar.style.width = c + '%';
+        joyVal.textContent = j + '%';
+        joyBar.style.width = j + '%';
+
+        if (mind.boltsCollected > 0 || mind.craving > 0) {
+          cravingRow.style.display = 'block';
+          const cr = Math.round(mind.craving);
+          cravingVal.textContent = cr + '%';
+          cravingBar.style.width = cr + '%';
+        } else {
+          cravingRow.style.display = 'none';
+        }
+
+        if (tinyAIs.length > 0 || mind.superiority > 0) {
+          superiorityRow.style.display = 'block';
+          const sup = Math.round(mind.superiority);
+          superiorityVal.textContent = sup + '%';
+          superiorityBar.style.width = sup + '%';
+        } else {
+          superiorityRow.style.display = 'none';
+        }
+
+        conceptCountEl.textContent = mind.concepts.size;
+        vocabCountEl.textContent = `${mind.vocab.length} word${mind.vocab.length === 1 ? '' : 's'}`;
+        if (mind.concepts.size === 0) {
+          conceptsListEl.innerHTML = '<span class="concept-empty">No concepts learned yet. Watch it experiment!</span>';
+        } else {
+          conceptsListEl.innerHTML = '';
+          mind.concepts.forEach(name => {
+            const chip = document.createElement('span');
+            chip.className = 'concept-chip';
+            chip.textContent = name;
+            conceptsListEl.appendChild(chip);
+          });
+        }
+
+        weightsGridEl.innerHTML = '';
+        for (const a of ACTIONS) {
+          const div = document.createElement('div');
+          div.className = 'weight-item';
+          div.innerHTML = `<span>${a.label}</span><strong>${mind.weights[a.id].toFixed(2)}</strong>`;
+          weightsGridEl.appendChild(div);
+        }
+      }
+
+      // --- Camera Orbit Controls ---
+      let camYaw = 0.65;
+      let camPitch = 0.68;
+      let camDist = 18;
+      let camTarget = new THREE.Vector3(0, 0.8, 0);
+      let dragging = false;
+      let prevPointer = { x: 0, y: 0 };
+
+      const dragRaycaster = new THREE.Raycaster();
+      const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const dragHitPt = new THREE.Vector3();
+      const dragOffset = { x: 0, z: 0 };
+      let draggedBlock = null;
+
+      function getPointerNDC(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        return new THREE.Vector2(
+          ((clientX - rect.left) / rect.width) * 2 - 1,
+          -((clientY - rect.top) / rect.height) * 2 + 1
+        );
+      }
+
+      canvas.addEventListener('pointerdown', (e) => {
+        Sound.unlock();
+        // Check if clicking/tapping directly on a block to pick it up & move it
+        const ndc = getPointerNDC(e.clientX, e.clientY);
+        dragRaycaster.setFromCamera(ndc, camera);
+        const blockMeshes = worldObjects.filter(o => o.type === 'block' && !o.carried).map(o => o.mesh);
+        const hits = dragRaycaster.intersectObjects(blockMeshes, false);
+        if (hits.length > 0) {
+          const hitMesh = hits[0].object;
+          const blk = worldObjects.find(o => o.mesh === hitMesh);
+          if (blk) {
+            draggedBlock = blk;
+            blk.carried = true;
+            if (dragRaycaster.ray.intersectPlane(dragPlane, dragHitPt)) {
+              dragOffset.x = blk.x - dragHitPt.x;
+              dragOffset.z = blk.z - dragHitPt.z;
+            } else {
+              dragOffset.x = 0;
+              dragOffset.z = 0;
+            }
+            blk.mesh.position.y = Math.max(blk.y, 1.25);
+            Sound.pickup();
+            return;
+          }
+        }
+        dragging = true;
+        prevPointer = { x: e.clientX, y: e.clientY };
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (draggedBlock) {
+          const ndc = getPointerNDC(e.clientX, e.clientY);
+          dragRaycaster.setFromCamera(ndc, camera);
+          if (dragRaycaster.ray.intersectPlane(dragPlane, dragHitPt)) {
+            const gx = THREE.MathUtils.clamp(dragHitPt.x + dragOffset.x, -HALF + 0.45, HALF - 0.45);
+            const gz = THREE.MathUtils.clamp(dragHitPt.z + dragOffset.z, -HALF + 0.45, HALF - 0.45);
+            draggedBlock.x = gx;
+            draggedBlock.z = gz;
+            draggedBlock.mesh.position.set(gx, 1.25, gz);
+          }
+          return;
+        }
+        if (!dragging) return;
+        const dx = e.clientX - prevPointer.x;
+        const dy = e.clientY - prevPointer.y;
+        prevPointer = { x: e.clientX, y: e.clientY };
+        camYaw -= dx * 0.007;
+        camPitch = THREE.MathUtils.clamp(camPitch + dy * 0.007, 0.22, 1.38);
+      });
+
+      window.addEventListener('pointerup', () => {
+        if (draggedBlock) {
+          const b = draggedBlock;
+          draggedBlock = null;
+          b.carried = false;
+          const px = THREE.MathUtils.clamp(b.x, -HALF + 0.45, HALF - 0.45);
+          const pz = THREE.MathUtils.clamp(b.z, -HALF + 0.45, HALF - 0.45);
+          const stackY = getStackHeightAt(px, pz, b);
+          b.x = px;
+          b.z = pz;
+          b.targetY = stackY + 0.45;
+          b.y = b.targetY;
+          b.mesh.position.set(px, b.targetY, pz);
+          Sound.place();
+        }
+        dragging = false;
+      });
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        camDist = THREE.MathUtils.clamp(camDist + e.deltaY * 0.015, 7, 48);
+      }, { passive: false });
+
+      function updateCamera(dt) {
+        if (renderer.xr.isPresenting) {
+          cameraRig.position.set(player.x, player.y, player.z);
+          cameraRig.rotation.y = vrYaw;
+          camera.position.set(0, 1.5, 0);
+          return;
+        }
+        cameraRig.position.set(0, 0, 0);
+        cameraRig.rotation.y = 0;
+        let goal;
+        if (player.active && !followAI) {
+          goal = new THREE.Vector3(player.x, player.y + 0.9, player.z);
+        } else if (followAI) {
+          goal = new THREE.Vector3(mind.x, mind.y + 0.9, mind.z);
+        } else {
+          goal = new THREE.Vector3(0, 0.5, 0);
+        }
+        camTarget.lerp(goal, Math.min(1, dt * 5));
+        const cx = camTarget.x + camDist * Math.sin(camYaw) * Math.cos(camPitch);
+        const cy = camTarget.y + camDist * Math.sin(camPitch);
+        const cz = camTarget.z + camDist * Math.cos(camYaw) * Math.cos(camPitch);
+        camera.position.set(cx, cy, cz);
+        camera.lookAt(camTarget);
+      }
+
+      // --- Controls & Buttons ---
+      pauseBtn.addEventListener('click', () => {
+        paused = !paused;
+        pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+        liveDot.style.background = paused ? '#fbbf24' : '#34d399';
+      });
+
+      function setSpeed(s, activeBtn) {
+        simSpeed = s;
+        [speed1Btn, speed3Btn, speed6Btn].forEach(b => b.classList.remove('active'));
+        activeBtn.classList.add('active');
+      }
+      speed1Btn.addEventListener('click', () => setSpeed(1, speed1Btn));
+      speed3Btn.addEventListener('click', () => setSpeed(3, speed3Btn));
+      speed6Btn.addEventListener('click', () => setSpeed(6, speed6Btn));
+
+      function triggerPetAI() {
+        if (!mind || mind.petCooldown > 0) return;
+        if (player.active && Math.hypot(mind.x - player.x, mind.z - player.z) > 2.6 && !renderer.xr.isPresenting) {
+          addLog('Walk closer to pet him!');
+          return;
+        }
+        mind.petCooldown = 2.0;
+        mind.joy = 100;
+        mind.ecstasyTimer = 5.5;
+        mind.heldTimer = 0;
+        if (player.carrying === 'ai') {
+          player.carrying = null;
+          mind.y = 0;
+        }
+        Sound.bolt();
+        unlockConcept('Affection', 16, "OHHH!! Head pats!! That feels like pure bliss!!");
+        setThought("OHHH YES!! Head pats!! I feel pure ecstasy!!");
+        addLog('You petted the AI — massive boost of ecstasy!', true);
+      }
+
+      function playerGrabOrDrop() {
+        if (!player.active) return;
+        Sound.unlock();
+        if (player.carrying) {
+          const item = player.carrying;
+          player.carrying = null;
+          if (item === 'ai') {
+            mind.y = 0;
+            mind.vy = 0;
+            if (mind.heldTimer > 2.5) {
+              setThought("Ugh, FINALLY! Don't ever grab me like that again!");
+              addLog('Released the AI (he was furious!).');
+            } else {
+              setThought("Okay, back on the ground.");
+            }
+            mind.heldTimer = 0;
+            updateStage();
+          } else if (tinyAIs.includes(item)) {
+            item.x = snapToGrid(player.x);
+            item.z = snapToGrid(player.z);
+            item.trapped = false;
+            item.mesh.position.set(item.x, 0, item.z);
+            Sound.place();
+            addLog('You set down a Tiny AI.');
+          } else {
+            item.carried = false;
+            const gx = snapToGrid(player.x);
+            const gz = snapToGrid(player.z);
+            const stackY = getStackHeightAt(gx, gz, item);
+            item.x = gx;
+            item.z = gz;
+            item.targetY = stackY + 0.45;
+            item.y = item.targetY;
+            item.mesh.position.set(gx, item.targetY + 0.3, gz);
+            Sound.place();
+          }
+          return;
+        }
+
+        // Check if Original AI is within reach to grab!
+        const aiDist = Math.hypot(mind.x - player.x, mind.z - player.z);
+        if (aiDist < 2.0) {
+          player.carrying = 'ai';
+          mind.heldTimer = 0;
+          mind.ecstasyTimer = 0;
+          Sound.pickup();
+          setThought("Wait—why are you picking me up?!");
+          addLog('You grabbed the AI!');
+          return;
+        }
+
+        // Find nearest Tiny AI or object within reach
+        let best = null;
+        let bestDist = 1.6;
+        for (const t of tinyAIs) {
+          if (t.falling || t === mind.carryingTiny) continue;
+          const d = Math.hypot(t.x - player.x, t.z - player.z);
+          if (d < bestDist) {
+            bestDist = d;
+            best = t;
+          }
+        }
+        for (const o of worldObjects) {
+          if (o.carried || o.type === 'orb' || o.type === 'bolt') continue;
+          const d = Math.hypot(o.x - player.x, o.z - player.z);
+          if (d < bestDist) {
+            bestDist = d;
+            best = o;
+          }
+        }
+
+        if (best) {
+          if (tinyAIs.includes(best)) {
+            player.carrying = best;
+            best.trapped = false;
+            Sound.pickup();
+            setThought("Hey! Put that tiny AI down! It belongs in my prison!");
+            addLog('You picked up a Tiny AI!');
+          } else {
+            best.carried = true;
+            player.carrying = best;
+            Sound.pickup();
+          }
+        }
+      }
+
+      enterWorldBtn.addEventListener('click', () => {
+        Sound.unlock();
+        player.active = !player.active;
+        playerGroup.visible = player.active;
+        playerControlsEl.classList.toggle('visible', player.active);
+        enterWorldBtn.classList.toggle('active', player.active);
+        enterWorldBtn.textContent = player.active ? 'Exit World' : 'Enter World';
+        if (player.active) {
+          followAI = false;
+          followBtn.classList.remove('active');
+          setThought("Whoa!! You're actually standing on the baseplate with me?!");
+          addLog('You entered the baseplate as a physical character!');
+        } else {
+          if (player.carrying) playerGrabOrDrop();
+          followAI = true;
+          followBtn.classList.add('active');
+          addLog('You exited the physical world.');
+        }
+      });
+
+      playerGrabBtn.addEventListener('click', playerGrabOrDrop);
+      playerJumpBtn.addEventListener('click', () => {
+        if (player.active && player.y <= 0.05) {
+          player.vy = 6.2;
+          Sound.bounce();
+        }
+      });
+
+      function bindHoldBtn(btn, keyName) {
+        btn.addEventListener('pointerdown', (e) => { e.preventDefault(); pKeys[keyName] = true; });
+        btn.addEventListener('pointerup', () => { pKeys[keyName] = false; });
+        btn.addEventListener('pointerleave', () => { pKeys[keyName] = false; });
+        btn.addEventListener('pointercancel', () => { pKeys[keyName] = false; });
+      }
+      bindHoldBtn(padUp, 'KeyW');
+      bindHoldBtn(padDown, 'KeyS');
+      bindHoldBtn(padLeft, 'KeyA');
+      bindHoldBtn(padRight, 'KeyD');
+
+      window.addEventListener('keydown', (e) => {
+        if (document.activeElement === chatInput) return;
+        pKeys[e.code] = true;
+        if (player.active && e.code === 'KeyE') {
+          playerGrabOrDrop();
+        } else if (player.active && e.code === 'KeyF') {
+          triggerPetAI();
+        } else if (player.active && e.code === 'Space') {
+          e.preventDefault();
+          if (player.y <= 0.05) {
+            player.vy = 6.2;
+            Sound.bounce();
+          }
+        }
+      });
+      window.addEventListener('keyup', (e) => { pKeys[e.code] = false; });
+
+      followBtn.addEventListener('click', () => {
+        followAI = !followAI;
+        followBtn.classList.toggle('active', followAI);
+      });
+
+      hudToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hudPopover.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!hudPopover.contains(e.target) && e.target !== hudToggleBtn) {
+          hudPopover.classList.remove('open');
+        }
+      });
+
+      chkBottomBar.addEventListener('change', () => {
+        bottomBarEl.classList.toggle('hud-hidden', !chkBottomBar.checked);
+      });
+      chkSidebar.addEventListener('change', () => {
+        sidebarEl.classList.toggle('hud-hidden', !chkSidebar.checked);
+        resize();
+      });
+      chkBubble.addEventListener('change', () => {
+        thoughtBubble.classList.toggle('hud-hidden', !chkBubble.checked);
+      });
+      chkSpeedBar.addEventListener('change', () => {
+        speedBarGroup.classList.toggle('hud-hidden', !chkSpeedBar.checked);
+      });
+      chkPlayerPad.addEventListener('change', () => {
+        playerControlsEl.classList.toggle('hud-hidden', !chkPlayerPad.checked);
+      });
+
+      muteBtn.addEventListener('click', () => {
+        const next = !Sound.isMuted();
+        Sound.setMuted(next);
+        muteBtn.textContent = next ? 'Sound: Off' : 'Sound: On';
+      });
+
+      function resetMind() {
+        Sound.unlock();
+        clearSavedMind();
+        while (tinyAIs.length > 0) {
+          const t = tinyAIs.pop();
+          scene.remove(t.mesh);
+        }
+        while (worldObjects.length > 0) {
+          const o = worldObjects.pop();
+          scene.remove(o.mesh);
+        }
+        while (shadowEntities.length > 0) {
+          const se = shadowEntities.pop();
+          scene.remove(se.mesh);
+        }
+        mind = createFreshMind();
+        chatMessagesEl.innerHTML = '';
+        setThought("Waking up... I don't know what anything is yet.");
+        appendChatMessage('ai', "Hi... I just woke up. I don't know anything yet. Talk to me or drop things!", true);
+        addLog('Memory wiped. Starting from Tabula Rasa.', false);
+        updateStage();
+        renderSidebar();
+        saveMindState();
+      }
+
+      function restoreOrInitMind() {
+        let saved = null;
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) saved = JSON.parse(raw);
+        } catch (e) {
+          saved = null;
+        }
+
+        if (!saved) {
+          resetMind();
+          return;
+        }
+
+        mind = createFreshMind();
+        mind.age = saved.age || 0;
+        mind.xp = saved.xp || 0;
+        mind.energy = saved.energy ?? 80;
+        mind.curiosity = saved.curiosity ?? 95;
+        mind.joy = saved.joy ?? 40;
+        mind.craving = saved.craving ?? 0;
+        mind.ecstasyTimer = saved.ecstasyTimer ?? 0;
+        mind.boltsCollected = saved.boltsCollected ?? 0;
+        mind.superiority = saved.superiority ?? 0;
+        mind.prisonIndex = saved.prisonIndex ?? 0;
+        if (saved.tinyCount && saved.tinyCount > 0) {
+          for (let i = 0; i < Math.min(8, saved.tinyCount); i++) {
+            spawnTinyAI();
+          }
+        }
+        mind.concepts = new Set(saved.concepts || []);
+        mind.vocab = Array.isArray(saved.vocab) ? saved.vocab : [];
+        mind.facts = (saved.facts && typeof saved.facts === 'object') ? saved.facts : {};
+        mind.userName = saved.userName || null;
+        mind.chatHistory = Array.isArray(saved.chatHistory) ? saved.chatHistory : [];
+        if (saved.weights) Object.assign(mind.weights, saved.weights);
+        mind.logs = Array.isArray(saved.logs) ? saved.logs : [];
+        mind.x = saved.x || 0;
+        mind.z = saved.z || 0;
+
+        if (Array.isArray(saved.objects)) {
+          for (const o of saved.objects) {
+            const created = createWorldObject(o.type, o.x, o.z);
+            created.mesh.position.y = o.y;
+            created.y = o.y;
+            created.targetY = o.y;
+          }
+        }
+
+        // Simulate offline learning while the user was away!
+        const offlineSec = Math.max(0, (Date.now() - (saved.lastSaved || Date.now())) / 1000);
+        if (offlineSec > 3) {
+          const simSec = Math.min(offlineSec, 60 * 60 * 12); // simulate up to 12h
+          const ticks = Math.min(400, Math.floor(simSec / 1.5));
+          const beforeConcepts = mind.concepts.size;
+          const prevMuted = Sound.isMuted();
+          Sound.setMuted(true);
+          for (let i = 0; i < ticks; i++) {
+            stepSimulation(0.5);
+          }
+          Sound.setMuted(prevMuted);
+          mind.age += Math.max(0, offlineSec - ticks * 0.5);
+          const gained = mind.concepts.size - beforeConcepts;
+          const awayStr = formatDuration(offlineSec);
+          const msg = gained > 0
+            ? `Welcome back! While you were away (${awayStr}), I kept exploring and learned ${gained} new concept${gained > 1 ? 's' : ''}!`
+            : `Welcome back! I stayed busy for ${awayStr} while you were away.`;
+          addLog(`Offline learning (${awayStr}): +${Math.round(ticks * 0.5)}s active sim.`, gained > 0);
+          appendChatMessage('ai', msg, true);
+          setThought(msg);
+        }
+
+        updateStage();
+        renderLogs();
+        renderChatHistory();
+        renderSidebar();
+        saveMindState();
+      }
+
+      resetBtn.addEventListener('click', resetMind);
+
+      llmKeyBtn.addEventListener('click', () => {
+        const open = llmKeyRow.style.display === 'flex';
+        llmKeyRow.style.display = open ? 'none' : 'flex';
+        if (!open) llmKeyInput.value = getLLMKey();
+      });
+
+      llmKeySave.addEventListener('click', () => {
+        setLLMKey(llmKeyInput.value.trim());
+        llmKeyRow.style.display = 'none';
+        llmKeyBtn.classList.toggle('active', Boolean(getLLMKey()));
+        addLog(getLLMKey() ? 'Connected Gemini AI Brain key!' : 'Cleared AI Brain key.', true);
+      });
+      if (getLLMKey()) llmKeyBtn.classList.add('active');
+
+      chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const val = chatInput.value;
+        chatInput.value = '';
+        handleUserChat(val);
+      });
+
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRec) {
+        const rec = new SpeechRec();
+        rec.lang = 'en-US';
+        rec.interimResults = false;
+        rec.onresult = (ev) => {
+          const transcript = ev.results[0][0].transcript;
+          micBtn.textContent = 'Mic';
+          micBtn.classList.remove('active');
+          handleUserChat(transcript);
+        };
+        rec.onerror = () => {
+          micBtn.textContent = 'Mic';
+          micBtn.classList.remove('active');
+        };
+        rec.onend = () => {
+          micBtn.textContent = 'Mic';
+          micBtn.classList.remove('active');
+        };
+        micBtn.addEventListener('click', () => {
+          Sound.unlock();
+          micBtn.textContent = 'Listening...';
+          micBtn.classList.add('active');
+          try { rec.start(); } catch (e) {}
+        });
+      } else {
+        micBtn.style.display = 'none';
+      }
+
+      window.addEventListener('beforeunload', saveMindState);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) saveMindState();
+      });
+
+      dropBlockBtn.addEventListener('click', () => {
+        Sound.unlock();
+        createWorldObject('block');
+        Sound.spawn();
+        setThought("Ooh! A new block appeared out of nowhere!");
+        addLog('User dropped a block into the world.');
+      });
+
+      dropOrbBtn.addEventListener('click', () => {
+        Sound.unlock();
+        createWorldObject('orb');
+        Sound.spawn();
+        setThought("Something glowing just fell onto the baseplate!");
+        addLog('User dropped an energy orb.');
+      });
+
+      dropPadBtn.addEventListener('click', () => {
+        Sound.unlock();
+        createWorldObject('pad');
+        Sound.spawn();
+        setThought("A shiny yellow disc appeared!");
+        addLog('User dropped a bounce pad.');
+      });
+
+      dropTreeBtn.addEventListener('click', () => {
+        Sound.unlock();
+        createWorldObject('sprout');
+        Sound.spawn();
+        setThought("A little green sprout grew on the tiles!");
+        addLog('User planted a sprout.');
+      });
+
+      dropBoltBtn.addEventListener('click', () => {
+        Sound.unlock();
+        createWorldObject('bolt');
+        Sound.spawn();
+        setThought(mind.craving > 30 ? "A LIGHTNING BOLT!! YES!!" : "Whoa, something crackling with electricity just landed!");
+        addLog('User dropped a lightning bolt!');
+      });
+
+      rainBtn.addEventListener('click', () => {
+        Sound.unlock();
+        startAcidRain(14);
+      });
+
+      vrBtn.addEventListener('click', async () => {
+        if (!navigator.xr) {
+          setThought("VR isn't available in this browser—open this file in a VR headset browser like Meta Quest Browser!");
+          addLog('WebXR not supported on this device/browser.');
+          return;
+        }
+        try {
+          const supported = await navigator.xr.isSessionSupported('immersive-vr');
+          if (!supported) {
+            setThought("No VR headset detected. Open this page inside your VR headset browser!");
+            addLog('Immersive VR session not supported here.');
+            return;
+          }
+          const session = await navigator.xr.requestSession('immersive-vr', {
+            optionalFeatures: ['local-floor', 'bounded-floor']
+          });
+          renderer.xr.setSession(session);
+          if (!player.active) enterWorldBtn.click();
+          addLog('Entered Immersive VR mode!', true);
+        } catch (err) {
+          addLog('Could not start VR session.');
+        }
+      });
+
+      dropBeaconBtn.addEventListener('click', () => {
+        Sound.unlock();
+        createWorldObject('beacon');
+        Sound.spawn();
+        setThought("A glowing Charging Beacon appeared!");
+        addLog('User dropped a Charging Beacon.');
+      });
+
+      dropShadowBtn.addEventListener('click', () => {
+        Sound.unlock();
+        spawnShadowEntity();
+        Sound.spawn();
+        setThought("What is that dark thing with red eyes?! It's chasing me!");
+        addLog('User spawned a Shadow Entity!');
+      });
+
+      playerPetBtn.addEventListener('click', () => {
+        Sound.unlock();
+        triggerPetAI();
+      });
+
+      dropTinyBtn.addEventListener('click', () => {
+        Sound.unlock();
+        spawnTinyAI();
+        Sound.spawn();
+        if (mind.superiority < 30) {
+          setThought("Huh? Another tiny AI appeared... it's walking right toward me.");
+        } else {
+          setThought("Another tiny AI? Great, another inferior one to lock up.");
+        }
+        addLog('Spawned a trusting Tiny AI!');
+      });
+
+      clearWorldBtn.addEventListener('click', () => {
+        mind.carrying = null;
+        mind.targetObj = null;
+        mind.prisonIndex = 0;
+        while (worldObjects.length > 0) {
+          const o = worldObjects.pop();
+          scene.remove(o.mesh);
+        }
+        while (tinyAIs.length > 0) {
+          const t = tinyAIs.pop();
+          scene.remove(t.mesh);
+        }
+        while (shadowEntities.length > 0) {
+          const se = shadowEntities.pop();
+          scene.remove(se.mesh);
+        }
+        addLog('Cleared all props, Tiny AIs, and Shadow Entities.');
+        setThought('Everything vanished... the baseplate is empty again.');
+      });
+
+      // --- Resize & Main Loop ---
+      function resize() {
+        const rect = wrap.getBoundingClientRect();
+        const w = Math.max(200, Math.floor(rect.width));
+        const h = Math.max(200, Math.floor(rect.height));
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h, false);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      }
+
+      window.addEventListener('resize', resize);
+
+      let lastT = performance.now();
+      let uiAccum = 0;
+
+      function animate(now) {
+        const rawDt = Math.min(0.05, Math.max(0.001, (now - lastT) / 1000));
+        lastT = now;
+
+        // Read VR thumbstick movement, turning, left option/menu button, and menu hover
+        if (renderer.xr.isPresenting && player.active) {
+          const session = renderer.xr.getSession();
+          if (session) {
+            let menuBtnDown = false;
+            for (const src of session.inputSources) {
+              const gp = src.gamepad;
+              if (!gp) continue;
+
+              // Left controller: walk relative to vrYaw + X/Y/Thumbstick-click menu toggle
+              if (src.handedness === 'left') {
+                if (gp.axes.length >= 4) {
+                  const lx = gp.axes[2];
+                  const lz = gp.axes[3];
+                  if (Math.abs(lx) > 0.15 || Math.abs(lz) > 0.15) {
+                    const cosY = Math.cos(vrYaw);
+                    const sinY = Math.sin(vrYaw);
+                    const wx = lx * cosY + lz * sinY;
+                    const wz = -lx * sinY + lz * cosY;
+                    player.x = THREE.MathUtils.clamp(player.x + wx * 4.2 * rawDt, -HALF + 0.6, HALF - 0.6);
+                    player.z = THREE.MathUtils.clamp(player.z + wz * 4.2 * rawDt, -HALF + 0.6, HALF - 0.6);
+                  }
+                }
+                // Check X (buttons[4]), Y (buttons[5]), or stick press (buttons[3])
+                if ((gp.buttons[4] && gp.buttons[4].pressed) ||
+                    (gp.buttons[5] && gp.buttons[5].pressed) ||
+                    (gp.buttons[3] && gp.buttons[3].pressed)) {
+                  menuBtnDown = true;
+                }
+              }
+
+              // Right controller: smooth turning with thumbstick X (axes[2])
+              if (src.handedness === 'right' && gp.axes.length >= 3) {
+                const rx = gp.axes[2];
+                if (Math.abs(rx) > 0.18) {
+                  vrYaw -= rx * 2.1 * rawDt;
+                }
+              }
+            }
+
+            if (menuBtnDown && !vrMenuToggleLatch) {
+              toggleVRMenu();
+            }
+            vrMenuToggleLatch = menuBtnDown;
+          }
+
+          // Check VR Hand-to-Head Petting!
+          if (mind.petCooldown <= 0 && player.carrying !== 'ai') {
+            const aiHeadWorld = new THREE.Vector3(mind.x, mind.y + 1.55, mind.z);
+            const handWorld = new THREE.Vector3();
+            for (const g of vrGrips) {
+              g.getWorldPosition(handWorld);
+              if (handWorld.distanceTo(aiHeadWorld) < 0.65) {
+                triggerPetAI();
+                break;
+              }
+            }
+          }
+
+          // Hover highlight on 3D VR menu buttons
+          if (vrMenuOpen) {
+            vrMenuButtons.forEach(b => b.scale.set(1, 1, 1));
+            for (const ctrl of vrControllers) {
+              vrTempMatrix.identity().extractRotation(ctrl.matrixWorld);
+              vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
+              vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(vrTempMatrix);
+              const hits = vrRaycaster.intersectObjects(vrMenuButtons, false);
+              if (hits.length > 0) {
+                hits[0].object.scale.set(1.08, 1.08, 1.08);
+              }
+            }
+          }
+        }
+
+        const steps = simSpeed;
+        for (let i = 0; i < steps; i++) {
+          stepSimulation(rawDt);
+        }
+        updateCamera(rawDt);
+        renderer.render(scene, camera);
+
+        // Position speech/thought bubble right above the AI's head
+        const bubbleOffsetY = mind.ecstasyTimer > 0 ? 1.15 : 2.45;
+        const headWorld = new THREE.Vector3(mind.x, mind.y + bubbleOffsetY, mind.z);
+        headWorld.project(camera);
+        if (headWorld.z < 1) {
+          const rect = wrap.getBoundingClientRect();
+          const sx = (headWorld.x * 0.5 + 0.5) * rect.width;
+          const sy = (-headWorld.y * 0.5 + 0.5) * rect.height;
+          const padX = Math.min(135, rect.width * 0.35);
+          const clampedX = Math.max(padX, Math.min(rect.width - padX, sx));
+          const clampedY = Math.max(82, Math.min(rect.height - 62, sy));
+          thoughtBubble.style.left = clampedX + 'px';
+          thoughtBubble.style.top = clampedY + 'px';
+          thoughtBubble.style.opacity = '1';
+        } else {
+          thoughtBubble.style.opacity = '0';
+        }
+
+        uiAccum += rawDt;
+        if (uiAccum >= 0.25) {
+          uiAccum = 0;
+          renderSidebar();
+        }
+        if (Math.floor(mind.age) % 3 === 0 && !paused) {
+          saveMindState();
+        }
+
+      }
+
+      window.onload = () => {
+        resize();
+        restoreOrInitMind();
+        lastT = performance.now();
+        renderer.setAnimationLoop(animate);
+      };
+    })();
+  </script>
+</body>
+</html>
